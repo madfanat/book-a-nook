@@ -44,6 +44,45 @@ func TestStatusValidate(t *testing.T) {
 	}
 }
 
+func TestCreateResourceInputValidate(t *testing.T) {
+	tests := []struct {
+		name  string
+		input CreateResourceInput
+		want  error
+	}{
+		{
+			name: "valid",
+			input: CreateResourceInput{
+				ID: "nook-1",
+			},
+			want: nil,
+		},
+		{
+			name: "empty ID",
+			input: CreateResourceInput{
+				ID: "",
+			},
+			want: ErrInvalidResourceID,
+		},
+		{
+			name: "whitespace ID",
+			input: CreateResourceInput{
+				ID: " ",
+			},
+			want: ErrInvalidResourceID,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := tt.input.Validate()
+			if !errors.Is(err, tt.want) {
+				t.Fatalf("Validate() = %v, want %v", err, tt.want)
+			}
+		})
+	}
+}
+
 func TestCreateSlotInputValidate(t *testing.T) {
 	now := time.Now()
 
@@ -55,7 +94,7 @@ func TestCreateSlotInputValidate(t *testing.T) {
 		{
 			name: "valid",
 			input: CreateSlotInput{
-				ResourceID: 1,
+				ResourceID: "nook-1",
 				StartsAt:   now,
 				EndsAt:     now.Add(time.Hour),
 			},
@@ -64,7 +103,7 @@ func TestCreateSlotInputValidate(t *testing.T) {
 		{
 			name: "zero StartsAt",
 			input: CreateSlotInput{
-				ResourceID: 1,
+				ResourceID: "nook-1",
 				StartsAt:   time.Time{},
 				EndsAt:     now.Add(time.Hour),
 			},
@@ -73,7 +112,7 @@ func TestCreateSlotInputValidate(t *testing.T) {
 		{
 			name: "zero EndsAt",
 			input: CreateSlotInput{
-				ResourceID: 1,
+				ResourceID: "nook-1",
 				StartsAt:   now.Add(time.Hour),
 				EndsAt:     time.Time{},
 			},
@@ -82,7 +121,7 @@ func TestCreateSlotInputValidate(t *testing.T) {
 		{
 			name: "EndsAt before StartsAt",
 			input: CreateSlotInput{
-				ResourceID: 1,
+				ResourceID: "nook-1",
 				StartsAt:   now.Add(time.Hour),
 				EndsAt:     now,
 			},
@@ -91,25 +130,25 @@ func TestCreateSlotInputValidate(t *testing.T) {
 		{
 			name: "EndsAt equals StartsAt",
 			input: CreateSlotInput{
-				ResourceID: 1,
+				ResourceID: "nook-1",
 				StartsAt:   now,
 				EndsAt:     now,
 			},
 			want: ErrInvalidTimeRange,
 		},
 		{
-			name: "zero ResourceID",
+			name: "empty ResourceID",
 			input: CreateSlotInput{
-				ResourceID: 0,
+				ResourceID: "",
 				StartsAt:   now,
 				EndsAt:     now.Add(time.Hour),
 			},
 			want: ErrInvalidResourceID,
 		},
 		{
-			name: "negative ResourceID",
+			name: "whitespace ResourceID",
 			input: CreateSlotInput{
-				ResourceID: -1,
+				ResourceID: " ",
 				StartsAt:   now,
 				EndsAt:     now.Add(time.Hour),
 			},
@@ -137,7 +176,7 @@ func TestCreateBookingInputValidate(t *testing.T) {
 			name: "valid",
 			input: CreateBookingInput{
 				SlotID: 1,
-				UserID: 1,
+				UserID: "tim",
 			},
 			want: nil,
 		},
@@ -145,7 +184,7 @@ func TestCreateBookingInputValidate(t *testing.T) {
 			name: "zero SlotID",
 			input: CreateBookingInput{
 				SlotID: 0,
-				UserID: 1,
+				UserID: "tim",
 			},
 			want: ErrInvalidSlotID,
 		},
@@ -153,23 +192,23 @@ func TestCreateBookingInputValidate(t *testing.T) {
 			name: "negative SlotID",
 			input: CreateBookingInput{
 				SlotID: -1,
-				UserID: 1,
+				UserID: "tim",
 			},
 			want: ErrInvalidSlotID,
 		},
 		{
-			name: "zero UserID",
+			name: "empty UserID",
 			input: CreateBookingInput{
 				SlotID: 1,
-				UserID: 0,
+				UserID: "",
 			},
 			want: ErrInvalidUserID,
 		},
 		{
-			name: "negative UserID",
+			name: "whitespace UserID",
 			input: CreateBookingInput{
 				SlotID: 1,
-				UserID: -1,
+				UserID: " ",
 			},
 			want: ErrInvalidUserID,
 		},
