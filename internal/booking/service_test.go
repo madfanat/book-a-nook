@@ -319,7 +319,7 @@ func TestCreateBookingValidInput(t *testing.T) {
 	if result.ID <= 0 {
 		t.Errorf("Id = %d, wana a positive ID", result.ID)
 	}
-	if result.ID != slot.ID {
+	if result.SlotID != slot.ID {
 		t.Errorf("SlotID = %d, want %d", result.SlotID, slot.ID)
 	}
 	if result.UserID != user.ID {
@@ -330,6 +330,60 @@ func TestCreateBookingValidInput(t *testing.T) {
 	}
 	if result.CreatedAt.IsZero() {
 		t.Error("CreatedAt is zero")
+	}
+}
+
+func TestCreateBookingInvalidInput(t *testing.T) {
+	tests := []struct {
+		name  string
+		input booking.CreateBookingInput
+		want  error
+	}{
+		{
+			name: "zero SlotID",
+			input: booking.CreateBookingInput{
+				SlotID: 0,
+				UserID: "tim",
+			},
+			want: booking.ErrInvalidSlotID,
+		},
+		{
+			name: "negative SlotID",
+			input: booking.CreateBookingInput{
+				SlotID: -1,
+				UserID: "tim",
+			},
+			want: booking.ErrInvalidSlotID,
+		},
+		{
+			name: "empty UserID",
+			input: booking.CreateBookingInput{
+				SlotID: 1,
+				UserID: "",
+			},
+			want: booking.ErrInvalidUserID,
+		},
+		{
+			name: "whitespace UserID",
+			input: booking.CreateBookingInput{
+				SlotID: 1,
+				UserID: " ",
+			},
+			want: booking.ErrInvalidUserID,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := context.Background()
+			service := booking.NewService(&dummyStore{})
+
+			_, err := service.CreateBooking(ctx, tt.input)
+
+			if !errors.Is(err, tt.want) {
+				t.Errorf("CreateBooking() error = %v, want %v", err, tt.want)
+			}
+		})
 	}
 }
 
