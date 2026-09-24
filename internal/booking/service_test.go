@@ -58,13 +58,16 @@ func TestCreateResourceValidInput(t *testing.T) {
 	service := booking.NewService(memory.NewStore())
 
 	in := booking.CreateResourceInput{ID: "nook-1"}
-	result, err := service.CreateResource(ctx, in)
+	got, err := service.CreateResource(ctx, in)
 	if err != nil {
 		t.Fatalf("setup: CreateResource() error = %v", err)
 	}
 
-	if result.ID != in.ID {
-		t.Errorf("ID = %q, want %q", result.ID, in.ID)
+	if got.ID != in.ID {
+		t.Errorf("ID = %q, want %q", got.ID, in.ID)
+	}
+	if got.CreatedAt.IsZero() {
+		t.Error("CreatedAt is zero")
 	}
 }
 
@@ -119,7 +122,7 @@ func TestCreateUserInvalidInput(t *testing.T) {
 			)
 
 			if !errors.Is(err, tt.want) {
-				t.Errorf("CreateBooking() error = %v, want %v", err, tt.want)
+				t.Errorf("CreateUser() error = %v, want %v", err, tt.want)
 			}
 		})
 	}
@@ -130,13 +133,16 @@ func TestCreateUserValidInput(t *testing.T) {
 	service := booking.NewService(memory.NewStore())
 
 	in := booking.CreateUserInput{ID: "tim"}
-	result, err := service.CreateUser(ctx, in)
+	got, err := service.CreateUser(ctx, in)
 	if err != nil {
 		t.Fatalf("setup: CreateUser() error = %v", err)
 	}
 
-	if result.ID != in.ID {
-		t.Errorf("ID = %q, want %q", result.ID, in.ID)
+	if got.ID != in.ID {
+		t.Errorf("ID = %q, want %q", got.ID, in.ID)
+	}
+	if got.CreatedAt.IsZero() {
+		t.Error("CreatedAt is zero")
 	}
 }
 
@@ -176,13 +182,25 @@ func TestCreateSlotValidInput(t *testing.T) {
 		StartsAt:   now,
 		EndsAt:     now.Add(time.Hour),
 	}
-	result, err := service.CreateSlot(ctx, in)
+	got, err := service.CreateSlot(ctx, in)
 	if err != nil {
 		t.Fatalf("setup: CreateSlot() error = %v", err)
 	}
 
-	if result.ResourceID != resource.ID {
-		t.Errorf("ID = %q, want %q", result.ResourceID, resource.ID)
+	if got.ID <= 0 {
+		t.Errorf("ID %d is not positive", got.ID)
+	}
+	if got.ResourceID != resource.ID {
+		t.Errorf("ID = %q, want %q", got.ResourceID, resource.ID)
+	}
+	if !got.StartsAt.Equal(in.StartsAt) {
+		t.Errorf("StartsAt = %v, want %v", got.StartsAt, in.StartsAt)
+	}
+	if !got.EndsAt.Equal(in.EndsAt) {
+		t.Errorf("EndsAt = %v, want %v", got.EndsAt, in.EndsAt)
+	}
+	if got.CreatedAt.IsZero() {
+		t.Error("CreatedAt is zero")
 	}
 }
 
@@ -305,7 +323,7 @@ func TestCreateBookingValidInput(t *testing.T) {
 		t.Fatalf("setup: CreateSlot() error = %v", err)
 	}
 
-	result, err := service.CreateBooking(
+	got, err := service.CreateBooking(
 		ctx,
 		booking.CreateBookingInput{
 			SlotID: slot.ID,
@@ -316,19 +334,19 @@ func TestCreateBookingValidInput(t *testing.T) {
 		t.Fatalf("setup: CreateBooking() error = %v", err)
 	}
 
-	if result.ID <= 0 {
-		t.Errorf("Id = %d, wana a positive ID", result.ID)
+	if got.ID <= 0 {
+		t.Errorf("Id = %d, want a positive ID", got.ID)
 	}
-	if result.SlotID != slot.ID {
-		t.Errorf("SlotID = %d, want %d", result.SlotID, slot.ID)
+	if got.SlotID != slot.ID {
+		t.Errorf("SlotID = %d, want %d", got.SlotID, slot.ID)
 	}
-	if result.UserID != user.ID {
-		t.Errorf("UserID = %q, want %q", result.UserID, user.ID)
+	if got.UserID != user.ID {
+		t.Errorf("UserID = %q, want %q", got.UserID, user.ID)
 	}
-	if result.Status != booking.StatusActive {
-		t.Errorf("Status = %q, want %q", result.Status, booking.StatusActive)
+	if got.Status != booking.StatusActive {
+		t.Errorf("Status = %q, want %q", got.Status, booking.StatusActive)
 	}
-	if result.CreatedAt.IsZero() {
+	if got.CreatedAt.IsZero() {
 		t.Error("CreatedAt is zero")
 	}
 }
@@ -392,35 +410,38 @@ func TestCreateBookingNonExistentUser(t *testing.T) {
 	ctx := context.Background()
 	service := booking.NewService(memory.NewStore())
 
-	resourceIn := booking.CreateResourceInput{
-		ID: "nook-1",
-	}
-	if _, err := service.CreateResource(ctx, resourceIn); err != nil {
+	resource, err := service.CreateResource(
+		ctx,
+		booking.CreateResourceInput{ID: "nook-1"},
+	)
+	if err != nil {
 		t.Fatalf("setup: CreateResource() error = %v", err)
 	}
 
-	userIn := booking.CreateUserInput{
-		ID: "tim",
-	}
-	if _, err := service.CreateUser(ctx, userIn); err != nil {
+	_, err = service.CreateUser(
+		ctx,
+		booking.CreateUserInput{ID: "tim"},
+	)
+	if err != nil {
 		t.Fatalf("setup: CreateUser() error = %v", err)
 	}
 
-	slotIn := booking.CreateSlotInput{
-		ResourceID: "nook-1",
-		StartsAt:   now,
-		EndsAt:     now.Add(time.Hour),
-	}
-	if _, err := service.CreateSlot(ctx, slotIn); err != nil {
+	slot, err := service.CreateSlot(
+		ctx,
+		booking.CreateSlotInput{
+			ResourceID: resource.ID,
+			StartsAt:   now,
+			EndsAt:     now.Add(time.Hour),
+		},
+	)
+	if err != nil {
 		t.Fatalf("setup: CreateSlot() error = %v", err)
 	}
 
-	in := booking.CreateBookingInput{
-		SlotID: 1,
+	_, err = service.CreateBooking(ctx, booking.CreateBookingInput{
+		SlotID: slot.ID,
 		UserID: "helen",
-	}
-
-	_, err := service.CreateBooking(ctx, in)
+	})
 	if !errors.Is(err, booking.ErrUserNotFound) {
 		t.Fatalf("CreateBooking() error = %v, want %v",
 			err,

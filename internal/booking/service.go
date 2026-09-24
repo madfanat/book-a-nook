@@ -18,8 +18,10 @@ type Store interface {
 	CreateUser(ctx context.Context, in CreateUserInput) (User, error)
 
 	// CreateSlot stores a slot from validated input.
-	// It returns the slot with ID, ResourceID, StartsAt, EndsAt,
-	// and CreatedAt.
+	// On success, it returns the slot with ID, ResourceID,
+	// StartsAt, EndsAt, and CreatedAt.
+	//
+	// It returns ErrResourceNotFound if the resource does not exist.
 	CreateSlot(ctx context.Context, in CreateSlotInput) (Slot, error)
 
 	// CreateBooking stores a booking from validated input.
@@ -28,7 +30,7 @@ type Store interface {
 	//
 	// It returns ErrUserNotFound if the user does not exist,
 	// ErrSlotNotFound if the slot does not exist,
-	// ErrSlotBooked if the slot is already booked, or
+	// ErrSlotAlreadyBooked if the slot is already booked, or
 	// ErrSlotsOverlap if the slots overlap.
 	//
 	// Cancelled bookings do not prevent creation.
@@ -77,6 +79,7 @@ func (s *Service) CreateUser(ctx context.Context, in CreateUserInput) (User, err
 // On success, it returns the stored slot.
 //
 // It returns ErrInvalidResourceID if the resource ID is invalid,
+// ErrResourceNotFound if the resource does not exist,
 // or ErrInvalidTimeRange if the time range is invalid.
 func (s *Service) CreateSlot(ctx context.Context, in CreateSlotInput) (Slot, error) {
 	if err := in.Validate(); err != nil {
@@ -93,7 +96,7 @@ func (s *Service) CreateSlot(ctx context.Context, in CreateSlotInput) (Slot, err
 // ErrInvalidUserID if the user ID is invalid,
 // ErrUserNotFound if the user does not exist,
 // ErrSlotNotFound if the slot does not exist,
-// ErrSlotBooked if the slot is already booked,
+// ErrSlotAlreadyBooked if the slot is already booked,
 // or ErrSlotsOverlap if the slots overlap.
 // Cancelled bookings do not prevent creation.
 func (s *Service) CreateBooking(ctx context.Context, in CreateBookingInput) (Booking, error) {

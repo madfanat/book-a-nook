@@ -12,45 +12,48 @@ import (
 func main() {
 	now := time.Now()
 	ctx := context.Background()
-	store := memory.NewStore()
-	service := booking.NewService(store)
+	service := booking.NewService(memory.NewStore())
 
-	resourceIn := booking.CreateResourceInput{
-		ID: "nook-1",
-	}
-	resource, err := service.CreateResource(ctx, resourceIn)
+	resource, err := service.CreateResource(
+		ctx,
+		booking.CreateResourceInput{ID: "nook-1"},
+	)
 	if err != nil {
-		log.Fatalf("CreateResource: %v", err)
+		log.Fatalf("setup: CreateResource() error = %v", err)
 	}
 	fmt.Printf("Created resource %v\n", resource.ID)
 
-	userIn := booking.CreateUserInput{
-		ID: "tim",
-	}
-	user, err := service.CreateUser(ctx, userIn)
+	user, err := service.CreateUser(
+		ctx,
+		booking.CreateUserInput{ID: "tim"},
+	)
 	if err != nil {
-		log.Fatalf("CreateUser: %v", err)
+		log.Fatalf("setup: CreateUser() error = %v", err)
 	}
 	fmt.Printf("Created user %v\n", user.ID)
 
-	slotIn := booking.CreateSlotInput{
-		ResourceID: "nook-1",
-		StartsAt:   now,
-		EndsAt:     now.Add(time.Hour),
-	}
-	slot, err := service.CreateSlot(ctx, slotIn)
+	slot, err := service.CreateSlot(
+		ctx,
+		booking.CreateSlotInput{
+			ResourceID: resource.ID,
+			StartsAt:   now,
+			EndsAt:     now.Add(time.Hour),
+		},
+	)
 	if err != nil {
-		log.Fatalf("CreateSlot: %v", err)
+		log.Fatalf("setup: CreateSlot() error = %v", err)
 	}
 	fmt.Printf("Created slot %d\n", slot.ID)
 
-	bookingInput := booking.CreateBookingInput{
-		SlotID: 1,
-		UserID: "tim",
-	}
-	booking, err := service.CreateBooking(ctx, bookingInput)
+	booking, err := service.CreateBooking(
+		ctx,
+		booking.CreateBookingInput{
+			SlotID: slot.ID,
+			UserID: user.ID,
+		},
+	)
 	if err != nil {
-		log.Fatalf("CreateBooking: %v", err)
+		log.Fatalf("setup: CreateBooking() error = %v", err)
 	}
 	fmt.Printf("Created booking %d for slot %d\n", booking.ID, booking.SlotID)
 }
