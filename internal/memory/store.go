@@ -37,7 +37,7 @@ func (s *Store) CreateResource(ctx context.Context, in booking.CreateResourceInp
 	}
 
 	if _, exists := s.resources[in.ID]; exists {
-		return booking.Resource{}, booking.ErrResourceAlreadyCreated
+		return booking.Resource{}, booking.ErrResourceExists
 	}
 
 	resource := booking.Resource{
@@ -59,7 +59,7 @@ func (s *Store) CreateUser(ctx context.Context, in booking.CreateUserInput) (boo
 	}
 
 	if _, exists := s.users[in.ID]; exists {
-		return booking.User{}, booking.ErrUserAlreadyCreated
+		return booking.User{}, booking.ErrUserExists
 	}
 
 	user := booking.User{

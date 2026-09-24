@@ -81,10 +81,10 @@ func TestCreateResourceDuplicate(t *testing.T) {
 	}
 
 	_, err := service.CreateResource(ctx, in)
-	if !errors.Is(err, booking.ErrResourceAlreadyCreated) {
+	if !errors.Is(err, booking.ErrResourceExists) {
 		t.Fatalf("CreateResource() error = %v, want %v",
 			err,
-			booking.ErrResourceAlreadyCreated,
+			booking.ErrResourceExists,
 		)
 	}
 }
@@ -156,10 +156,10 @@ func TestCreateUserDuplicate(t *testing.T) {
 	}
 
 	_, err := service.CreateUser(ctx, in)
-	if !errors.Is(err, booking.ErrUserAlreadyCreated) {
+	if !errors.Is(err, booking.ErrUserExists) {
 		t.Fatalf("CreateUser() error = %v, want %v",
 			err,
-			booking.ErrUserAlreadyCreated,
+			booking.ErrUserExists,
 		)
 	}
 }

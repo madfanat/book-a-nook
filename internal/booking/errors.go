@@ -4,14 +4,14 @@ import "errors"
 
 var (
 	// Resources
-	ErrInvalidResourceID      = errors.New("invalid resource ID")
-	ErrResourceNotFound       = errors.New("resource not found")
-	ErrResourceAlreadyCreated = errors.New("resource is already created")
+	ErrInvalidResourceID = errors.New("invalid resource ID")
+	ErrResourceNotFound  = errors.New("resource not found")
+	ErrResourceExists    = errors.New("resource is already created")
 
 	// Users
-	ErrInvalidUserID      = errors.New("invalid user ID")
-	ErrUserNotFound       = errors.New("user not found")
-	ErrUserAlreadyCreated = errors.New("user is already created")
+	ErrInvalidUserID = errors.New("invalid user ID")
+	ErrUserNotFound  = errors.New("user not found")
+	ErrUserExists    = errors.New("user is already created")
 
 	// Slots
 	ErrInvalidSlotID    = errors.New("invalid slot ID")
