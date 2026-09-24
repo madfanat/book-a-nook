@@ -119,7 +119,7 @@ func (s *Store) CreateBooking(ctx context.Context, in booking.CreateBookingInput
 			return booking.Booking{}, booking.ErrSlotAlreadyBooked
 		}
 		if slotsOverlap(s.slots[b.SlotID], s.slots[in.SlotID]) && b.Status == booking.StatusActive {
-			return booking.Booking{}, booking.ErrSlotsOverlap
+			return booking.Booking{}, booking.ErrBookingOverlap
 		}
 	}
 

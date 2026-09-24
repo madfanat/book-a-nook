@@ -556,7 +556,7 @@ func TestCreateBookingOverlap(t *testing.T) {
 				StartsAt:   now.Add(30 * time.Minute),
 				EndsAt:     now.Add(90 * time.Minute),
 			},
-			want: booking.ErrSlotsOverlap,
+			want: booking.ErrBookingOverlap,
 		},
 		{
 			name: "same resource different times",

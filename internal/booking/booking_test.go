@@ -25,12 +25,12 @@ func TestStatusValidate(t *testing.T) {
 		{
 			name:   "empty status",
 			status: "",
-			want:   ErrInvalidStatus,
+			want:   ErrInvalidBookingStatus,
 		},
 		{
 			name:   "invalid status",
 			status: "invalid",
-			want:   ErrInvalidStatus,
+			want:   ErrInvalidBookingStatus,
 		},
 	}
 

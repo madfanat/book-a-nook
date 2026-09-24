@@ -17,7 +17,7 @@ func (s Status) Validate() error {
 	case StatusActive, StatusCancelled:
 		return nil
 	default:
-		return ErrInvalidStatus
+		return ErrInvalidBookingStatus
 	}
 }
 
