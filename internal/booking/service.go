@@ -6,14 +6,14 @@ type Store interface {
 	// CreateResource stores a resource from validated input.
 	// On success, it returns the resource with ID and CreatedAt.
 	//
-	// It returns ErrResourceAlreadyCreated if the resource is
+	// It returns ErrResourceExists if the resource is
 	// already created.
 	CreateResource(ctx context.Context, in CreateResourceInput) (Resource, error)
 
 	// CreateUser stores a user from validated input.
 	// On success, it returns the user with ID and CreatedAt.
 	//
-	// It returns ErrUserAlreadyCreated if the user is
+	// It returns ErrUserExists if the user is
 	// already created.
 	CreateUser(ctx context.Context, in CreateUserInput) (User, error)
 
@@ -31,7 +31,7 @@ type Store interface {
 	// It returns ErrUserNotFound if the user does not exist,
 	// ErrSlotNotFound if the slot does not exist,
 	// ErrSlotAlreadyBooked if the slot is already booked, or
-	// ErrSlotsOverlap if the slots overlap.
+	// ErrBookingOverlap if the bookings overlap.
 	//
 	// Cancelled bookings do not prevent creation.
 	CreateBooking(ctx context.Context, in CreateBookingInput) (Booking, error)
@@ -51,7 +51,7 @@ func NewService(store Store) *Service {
 // On success, it returns the stored resource.
 //
 // It returns ErrInvalidResourceID if the ID is invalid,
-// or ErrResourceAlreadyCreated if the resource is
+// or ErrResourceExists if the resource is
 // already created.
 func (s *Service) CreateResource(ctx context.Context, in CreateResourceInput) (Resource, error) {
 	if err := in.Validate(); err != nil {
@@ -65,7 +65,7 @@ func (s *Service) CreateResource(ctx context.Context, in CreateResourceInput) (R
 // On success, it returns the stored user.
 //
 // It returns ErrInvalidUserID if the ID is invalid,
-// or ErrUserAlreadyCreated if the user is
+// or ErrUserExists if the user is
 // already created.
 func (s *Service) CreateUser(ctx context.Context, in CreateUserInput) (User, error) {
 	if err := in.Validate(); err != nil {
@@ -97,7 +97,7 @@ func (s *Service) CreateSlot(ctx context.Context, in CreateSlotInput) (Slot, err
 // ErrUserNotFound if the user does not exist,
 // ErrSlotNotFound if the slot does not exist,
 // ErrSlotAlreadyBooked if the slot is already booked,
-// or ErrSlotsOverlap if the slots overlap.
+// or ErrBookingOverlap if the bookings overlap.
 // Cancelled bookings do not prevent creation.
 func (s *Service) CreateBooking(ctx context.Context, in CreateBookingInput) (Booking, error) {
 	if err := in.Validate(); err != nil {
