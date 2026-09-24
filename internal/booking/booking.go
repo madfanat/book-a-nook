@@ -1,7 +1,6 @@
 package booking
 
 import (
-	"strings"
 	"time"
 )
 
@@ -31,7 +30,7 @@ type CreateResourceInput struct {
 }
 
 func (in CreateResourceInput) Validate() error {
-	if strings.TrimSpace(in.ID) == "" {
+	if in.ID == "" {
 		return ErrInvalidResourceID
 	}
 	return nil
@@ -47,7 +46,7 @@ type CreateUserInput struct {
 }
 
 func validateUserID(id string) error {
-	if strings.TrimSpace(id) == "" {
+	if id == "" {
 		return ErrInvalidUserID
 	}
 	return nil
@@ -72,7 +71,7 @@ type CreateSlotInput struct {
 }
 
 func (in CreateSlotInput) Validate() error {
-	if strings.TrimSpace(in.ResourceID) == "" {
+	if in.ResourceID == "" {
 		return ErrInvalidResourceID
 	}
 	if in.StartsAt.IsZero() || in.EndsAt.IsZero() {

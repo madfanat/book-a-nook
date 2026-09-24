@@ -1,6 +1,9 @@
 package booking
 
-import "context"
+import (
+	"context"
+	"strings"
+)
 
 type Store interface {
 	// CreateResource stores a resource from validated input.
@@ -47,13 +50,15 @@ func NewService(store Store) *Service {
 	}
 }
 
-// CreateResource creates a resource from input.
-// On success, it returns the stored resource.
+// CreateResource trims leading and trailing whitespace from the ID,
+// validates the normalized input, and creates a resource.
 //
 // It returns ErrInvalidResourceID if the ID is invalid,
 // or ErrResourceExists if the resource is
 // already created.
 func (s *Service) CreateResource(ctx context.Context, in CreateResourceInput) (Resource, error) {
+	in.ID = strings.TrimSpace(in.ID)
+
 	if err := in.Validate(); err != nil {
 		return Resource{}, err
 	}
@@ -61,13 +66,15 @@ func (s *Service) CreateResource(ctx context.Context, in CreateResourceInput) (R
 	return s.store.CreateResource(ctx, in)
 }
 
-// CreateUser creates a user from input.
-// On success, it returns the stored user.
+// CreateUser trims leading and trailing whitespace from the ID,
+// validates the normalized input, and creates a user.
 //
 // It returns ErrInvalidUserID if the ID is invalid,
 // or ErrUserExists if the user is
 // already created.
 func (s *Service) CreateUser(ctx context.Context, in CreateUserInput) (User, error) {
+	in.ID = strings.TrimSpace(in.ID)
+
 	if err := in.Validate(); err != nil {
 		return User{}, err
 	}
@@ -75,13 +82,15 @@ func (s *Service) CreateUser(ctx context.Context, in CreateUserInput) (User, err
 	return s.store.CreateUser(ctx, in)
 }
 
-// CreateSlot creates a slot from input.
-// On success, it returns the stored slot.
+// CreateSlot trims leading and trailing whitespace from the
+// ResourceID, validates the normalized input, and creates a slot.
 //
 // It returns ErrInvalidResourceID if the resource ID is invalid,
 // ErrResourceNotFound if the resource does not exist,
 // or ErrInvalidTimeRange if the time range is invalid.
 func (s *Service) CreateSlot(ctx context.Context, in CreateSlotInput) (Slot, error) {
+	in.ResourceID = strings.TrimSpace(in.ResourceID)
+
 	if err := in.Validate(); err != nil {
 		return Slot{}, err
 	}
@@ -89,8 +98,8 @@ func (s *Service) CreateSlot(ctx context.Context, in CreateSlotInput) (Slot, err
 	return s.store.CreateSlot(ctx, in)
 }
 
-// CreateBooking creates a booking from input.
-// On success, it returns the stored booking.
+// CreateBooking trims leading and trailing whitespace from the
+// UserID, validates the normalized input, and creates a resource.
 //
 // It returns ErrInvalidSlotID if the slot ID is invalid,
 // ErrInvalidUserID if the user ID is invalid,
@@ -100,6 +109,8 @@ func (s *Service) CreateSlot(ctx context.Context, in CreateSlotInput) (Slot, err
 // or ErrBookingOverlap if the bookings overlap.
 // Cancelled bookings do not prevent creation.
 func (s *Service) CreateBooking(ctx context.Context, in CreateBookingInput) (Booking, error) {
+	in.UserID = strings.TrimSpace(in.UserID)
+
 	if err := in.Validate(); err != nil {
 		return Booking{}, err
 	}
