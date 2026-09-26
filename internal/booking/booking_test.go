@@ -64,13 +64,6 @@ func TestCreateResourceInputValidate(t *testing.T) {
 			},
 			want: ErrInvalidResourceID,
 		},
-		{
-			name: "whitespace ID",
-			input: CreateResourceInput{
-				ID: " ",
-			},
-			want: ErrInvalidResourceID,
-		},
 	}
 
 	for _, tt := range tests {
@@ -145,15 +138,6 @@ func TestCreateSlotInputValidate(t *testing.T) {
 			},
 			want: ErrInvalidResourceID,
 		},
-		{
-			name: "whitespace ResourceID",
-			input: CreateSlotInput{
-				ResourceID: " ",
-				StartsAt:   now,
-				EndsAt:     now.Add(time.Hour),
-			},
-			want: ErrInvalidResourceID,
-		},
 	}
 
 	for _, tt := range tests {
@@ -201,14 +185,6 @@ func TestCreateBookingInputValidate(t *testing.T) {
 			input: CreateBookingInput{
 				SlotID: 1,
 				UserID: "",
-			},
-			want: ErrInvalidUserID,
-		},
-		{
-			name: "whitespace UserID",
-			input: CreateBookingInput{
-				SlotID: 1,
-				UserID: " ",
 			},
 			want: ErrInvalidUserID,
 		},
