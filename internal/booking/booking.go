@@ -26,7 +26,7 @@ type Resource struct {
 }
 
 type CreateResourceInput struct {
-	ID string
+	ID string `json:"id"`
 }
 
 func (in CreateResourceInput) Validate() error {
@@ -42,7 +42,7 @@ type User struct {
 }
 
 type CreateUserInput struct {
-	ID string
+	ID string `json:"id"`
 }
 
 func validateUserID(id string) error {
@@ -65,9 +65,9 @@ type Slot struct {
 }
 
 type CreateSlotInput struct {
-	ResourceID string
-	StartsAt   time.Time
-	EndsAt     time.Time
+	ResourceID string    `json:"resource_id"`
+	StartsAt   time.Time `json:"starts_at"`
+	EndsAt     time.Time `json:"ends_at"`
 }
 
 func (in CreateSlotInput) Validate() error {
@@ -84,8 +84,8 @@ func (in CreateSlotInput) Validate() error {
 }
 
 type CreateBookingInput struct {
-	SlotID int
-	UserID string
+	SlotID int    `json:"slot_id"`
+	UserID string `json:"user_id"`
 }
 
 type Booking struct {
