@@ -14,6 +14,9 @@ func NewHandler(service *booking.Service) http.Handler {
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("POST  /resources", handler.createResource)
+	mux.HandleFunc("POST  /users", handler.createUser)
+	mux.HandleFunc("POST  /slots", handler.createSlot)
+	mux.HandleFunc("POST  /booking", handler.createBooking)
 
 	return mux
 }
