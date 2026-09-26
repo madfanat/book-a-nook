@@ -2,58 +2,31 @@ package main
 
 import (
 	"book-a-nook/internal/booking"
+	"book-a-nook/internal/httpapi"
 	"book-a-nook/internal/memory"
-	"context"
-	"fmt"
+	"errors"
 	"log"
+	"net/http"
 	"time"
 )
 
 func main() {
-	now := time.Now()
-	ctx := context.Background()
-	service := booking.NewService(memory.NewStore())
+	store := memory.NewStore()
+	service := booking.NewService(store)
 
-	resource, err := service.CreateResource(
-		ctx,
-		booking.CreateResourceInput{ID: "nook-1"},
-	)
-	if err != nil {
-		log.Fatalf("setup: CreateResource() error = %v", err)
+	server := &http.Server{
+		Addr:              "127.0.0.1:8080",
+		Handler:           httpapi.NewHandler(service),
+		ReadHeaderTimeout: 5 * time.Second,
+		ReadTimeout:       10 * time.Second,
+		WriteTimeout:      10 * time.Second,
+		IdleTimeout:       60 * time.Second,
 	}
-	fmt.Printf("Created resource %v\n", resource.ID)
 
-	user, err := service.CreateUser(
-		ctx,
-		booking.CreateUserInput{ID: "tim"},
-	)
-	if err != nil {
-		log.Fatalf("setup: CreateUser() error = %v", err)
-	}
-	fmt.Printf("Created user %v\n", user.ID)
+	log.Printf("listening on http://%s", server.Addr)
 
-	slot, err := service.CreateSlot(
-		ctx,
-		booking.CreateSlotInput{
-			ResourceID: resource.ID,
-			StartsAt:   now,
-			EndsAt:     now.Add(time.Hour),
-		},
-	)
-	if err != nil {
-		log.Fatalf("setup: CreateSlot() error = %v", err)
+	if err := server.ListenAndServe(); err != nil &&
+		!errors.Is(err, http.ErrServerClosed) {
+		log.Fatal(err)
 	}
-	fmt.Printf("Created slot %d\n", slot.ID)
-
-	booking, err := service.CreateBooking(
-		ctx,
-		booking.CreateBookingInput{
-			SlotID: slot.ID,
-			UserID: user.ID,
-		},
-	)
-	if err != nil {
-		log.Fatalf("setup: CreateBooking() error = %v", err)
-	}
-	fmt.Printf("Created booking %d for slot %d\n", booking.ID, booking.SlotID)
 }
