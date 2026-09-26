@@ -9,16 +9,16 @@ import (
 	"testing"
 )
 
-func TestCreateResourceValidRequest(t *testing.T) {
+func TestCreateUserValidRequest(t *testing.T) {
 	service := booking.NewService(memory.NewStore())
 	handler := httpapi.NewHandler(service)
 
 	response := request(
 		handler,
 		http.MethodPost,
-		"/resources",
+		"/users",
 		"application/json",
-		`{"id":" nook-1 "}`,
+		`{"id":" tim "}`,
 	)
 
 	if response.Code != http.StatusCreated {
@@ -34,15 +34,15 @@ func TestCreateResourceValidRequest(t *testing.T) {
 		t.Fatalf("Unmarshal() error: %v", err)
 	}
 
-	if resource.ID != "nook-1" {
-		t.Errorf("ID = %q, want nook-1", resource.ID)
+	if resource.ID != "tim" {
+		t.Errorf("ID = %q, want tim", resource.ID)
 	}
 	if resource.CreatedAt.IsZero() {
 		t.Error("CreatedAt is zero")
 	}
 }
 
-func TestCreateResourceInvalidRequest(t *testing.T) {
+func TestCreateUserInvalidRequest(t *testing.T) {
 	tests := []struct {
 		name        string
 		contentType string
@@ -52,14 +52,14 @@ func TestCreateResourceInvalidRequest(t *testing.T) {
 	}{
 		{
 			name:       "missing content type",
-			body:       `{"id":"nook-1"}`,
+			body:       `{"id":"tim"}`,
 			wantStatus: httpapi.ErrInvalidContentType.Status(),
 			wantError:  httpapi.ErrInvalidContentType,
 		},
 		{
 			name:        "invalid content type",
 			contentType: "text/plain",
-			body:        `{"id":"nook-1"}`,
+			body:        `{"id":"tim"}`,
 			wantStatus:  httpapi.ErrInvalidContentType.Status(),
 			wantError:   httpapi.ErrInvalidContentType,
 		},
@@ -89,26 +89,26 @@ func TestCreateResourceInvalidRequest(t *testing.T) {
 			contentType: "application/json",
 			body:        `{"id":" "}`,
 			wantStatus:  http.StatusBadRequest,
-			wantError:   booking.ErrInvalidResourceID,
+			wantError:   booking.ErrInvalidUserID,
 		},
 		{
 			name:        "missing ID",
 			contentType: "application/json",
 			body:        `{}`,
 			wantStatus:  http.StatusBadRequest,
-			wantError:   booking.ErrInvalidResourceID,
+			wantError:   booking.ErrInvalidUserID,
 		},
 		{
 			name:        "multiple JSON values",
 			contentType: "application/json",
-			body:        `{"id":"nook-1"} {"id":"nook-2"}`,
+			body:        `{"id":"tim"} {"id":"helen"}`,
 			wantStatus:  httpapi.ErrMultipleJSONValues.Status(),
 			wantError:   httpapi.ErrMultipleJSONValues,
 		},
 		{
 			name:        "trailing garbage",
 			contentType: "application/json",
-			body:        `{"id":"nook-1"} garbage`,
+			body:        `{"id":"tim"} garbage`,
 			wantStatus:  httpapi.ErrInvalidBody.Status(),
 			wantError:   httpapi.ErrInvalidBody,
 		},
@@ -122,7 +122,7 @@ func TestCreateResourceInvalidRequest(t *testing.T) {
 			response := request(
 				handler,
 				http.MethodPost,
-				"/resources",
+				"/users",
 				tt.contentType,
 				tt.body,
 			)
