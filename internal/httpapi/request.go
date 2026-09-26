@@ -45,7 +45,7 @@ func readJSON[T any](r *http.Request) (T, *requestError) {
 			}
 		}
 
-		return input, &requestError{
+		return zero, &requestError{
 			status:  http.StatusBadRequest,
 			message: "invalid JSON request body",
 		}
