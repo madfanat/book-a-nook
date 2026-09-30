@@ -116,6 +116,10 @@ func (s *Store) ListSlots(ctx context.Context, in booking.ListSlotsInput) ([]boo
 		return nil, err
 	}
 
+	if _, exists := s.resources[in.ResourceID]; !exists {
+		return nil, booking.ErrResourceNotFound
+	}
+
 	result := make([]booking.Slot, 0)
 	for _, slot := range s.slots {
 		if slot.ResourceID == in.ResourceID {

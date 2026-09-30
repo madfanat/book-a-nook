@@ -607,10 +607,11 @@ func TestListSlotsLimit(t *testing.T) {
 	}
 }
 
-func TestListSlotsEmptyResult(t *testing.T) {
+func TestListSlotsEmptyOrMissingResource(t *testing.T) {
 	tests := []struct {
 		name       string
 		resourceID string
+		want       error
 	}{
 		{
 			name:       "existing resource without slots",
@@ -619,6 +620,7 @@ func TestListSlotsEmptyResult(t *testing.T) {
 		{
 			name:       "unknown resource",
 			resourceID: "missing",
+			want:       booking.ErrResourceNotFound,
 		},
 	}
 
@@ -637,11 +639,17 @@ func TestListSlotsEmptyResult(t *testing.T) {
 				ResourceID: tt.resourceID,
 				Limit:      2,
 			})
-			if err != nil {
-				t.Fatalf("ListSlots(): %v", err)
+			if !errors.Is(err, tt.want) {
+				t.Fatalf("ListSlots() error = %v, want %v", err, tt.want)
+			}
+			if tt.want != nil {
+				if got != nil {
+					t.Fatalf("ListSlots() = %v, want nil", got)
+				}
+				return
 			}
 			if got == nil {
-				t.Fatal("ListSlots() returned nil, want an empty slice")
+				t.Fatal("ListSlots() = nil, want an empty slice")
 			}
 			if len(got) != 0 {
 				t.Errorf("length = %d, want 0", len(got))
