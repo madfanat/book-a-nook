@@ -6,44 +6,7 @@ import (
 	"time"
 )
 
-func TestStatusValidate(t *testing.T) {
-	tests := []struct {
-		name   string
-		status Status
-		want   error
-	}{
-		{
-			name:   "valid active",
-			status: StatusActive,
-			want:   nil,
-		},
-		{
-			name:   "valid cancelled",
-			status: StatusCancelled,
-			want:   nil,
-		},
-		{
-			name:   "empty status",
-			status: "",
-			want:   ErrInvalidBookingStatus,
-		},
-		{
-			name:   "invalid status",
-			status: "invalid",
-			want:   ErrInvalidBookingStatus,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			err := tt.status.Validate()
-			if !errors.Is(err, tt.want) {
-				t.Fatalf("Validate() = %v, want %v", err, tt.want)
-			}
-		})
-	}
-}
-
+// Resources
 func TestCreateResourceInputValidate(t *testing.T) {
 	tests := []struct {
 		name  string
@@ -76,6 +39,40 @@ func TestCreateResourceInputValidate(t *testing.T) {
 	}
 }
 
+// Users
+func TestCreateUserInputValidate(t *testing.T) {
+	tests := []struct {
+		name  string
+		input CreateUserInput
+		want  error
+	}{
+		{
+			name: "valid",
+			input: CreateUserInput{
+				ID: "tim",
+			},
+			want: nil,
+		},
+		{
+			name: "empty ID",
+			input: CreateUserInput{
+				ID: "",
+			},
+			want: ErrInvalidUserID,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := tt.input.Validate()
+			if !errors.Is(err, tt.want) {
+				t.Fatalf("Validate() = %v, want %v", err, tt.want)
+			}
+		})
+	}
+}
+
+// Slots
 func TestCreateSlotInputValidate(t *testing.T) {
 	now := time.Now()
 
@@ -150,6 +147,87 @@ func TestCreateSlotInputValidate(t *testing.T) {
 	}
 }
 
+func TestListSlotsInputValidate(t *testing.T) {
+	tests := []struct {
+		name  string
+		input ListSlotsInput
+		want  error
+	}{
+		{
+			name: "empty ResourceID",
+			input: ListSlotsInput{
+				ResourceID: "",
+				Limit:      20,
+			},
+			want: ErrInvalidResourceID,
+		},
+		{
+			name: "zero Limit",
+			input: ListSlotsInput{
+				ResourceID: "nook-1",
+				Limit:      0,
+			},
+			want: ErrInvalidLimit,
+		},
+		{
+			name: "negative Limit",
+			input: ListSlotsInput{
+				ResourceID: "nook-1",
+				Limit:      -1,
+			},
+			want: ErrInvalidLimit,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := tt.input.Validate()
+			if !errors.Is(err, tt.want) {
+				t.Fatalf("Validate() = %v, want %v", err, tt.want)
+			}
+		})
+	}
+}
+
+// Bookings
+func TestStatusValidate(t *testing.T) {
+	tests := []struct {
+		name   string
+		status Status
+		want   error
+	}{
+		{
+			name:   "valid active",
+			status: StatusActive,
+			want:   nil,
+		},
+		{
+			name:   "valid cancelled",
+			status: StatusCancelled,
+			want:   nil,
+		},
+		{
+			name:   "empty status",
+			status: "",
+			want:   ErrInvalidBookingStatus,
+		},
+		{
+			name:   "invalid status",
+			status: "invalid",
+			want:   ErrInvalidBookingStatus,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := tt.status.Validate()
+			if !errors.Is(err, tt.want) {
+				t.Fatalf("Validate() = %v, want %v", err, tt.want)
+			}
+		})
+	}
+}
+
 func TestCreateBookingInputValidate(t *testing.T) {
 	tests := []struct {
 		name  string
@@ -184,6 +262,106 @@ func TestCreateBookingInputValidate(t *testing.T) {
 			name: "empty UserID",
 			input: CreateBookingInput{
 				SlotID: 1,
+				UserID: "",
+			},
+			want: ErrInvalidUserID,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := tt.input.Validate()
+			if !errors.Is(err, tt.want) {
+				t.Fatalf("Validate() = %v, want %v", err, tt.want)
+			}
+		})
+	}
+}
+
+func TestGetBookingInputValidate(t *testing.T) {
+	tests := []struct {
+		name  string
+		input GetBookingInput
+		want  error
+	}{
+		{
+			name: "valid",
+			input: GetBookingInput{
+				ID:     1,
+				UserID: "tim",
+			},
+			want: nil,
+		},
+		{
+			name: "zero ID",
+			input: GetBookingInput{
+				ID:     0,
+				UserID: "tim",
+			},
+			want: ErrInvalidBookingID,
+		},
+		{
+			name: "negative ID",
+			input: GetBookingInput{
+				ID:     -1,
+				UserID: "tim",
+			},
+			want: ErrInvalidBookingID,
+		},
+		{
+			name: "empty UserID",
+			input: GetBookingInput{
+				ID:     1,
+				UserID: "",
+			},
+			want: ErrInvalidUserID,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := tt.input.Validate()
+			if !errors.Is(err, tt.want) {
+				t.Fatalf("Validate() = %v, want %v", err, tt.want)
+			}
+		})
+	}
+}
+
+func TestCancelBookingInputValidate(t *testing.T) {
+	tests := []struct {
+		name  string
+		input CancelBookingInput
+		want  error
+	}{
+		{
+			name: "valid",
+			input: CancelBookingInput{
+				ID:     1,
+				UserID: "tim",
+			},
+			want: nil,
+		},
+		{
+			name: "zero ID",
+			input: CancelBookingInput{
+				ID:     0,
+				UserID: "tim",
+			},
+			want: ErrInvalidBookingID,
+		},
+		{
+			name: "negative ID",
+			input: CancelBookingInput{
+				ID:     -1,
+				UserID: "tim",
+			},
+			want: ErrInvalidBookingID,
+		},
+		{
+			name: "empty UserID",
+			input: CancelBookingInput{
+				ID:     1,
 				UserID: "",
 			},
 			want: ErrInvalidUserID,

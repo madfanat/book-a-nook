@@ -3,6 +3,7 @@ package memory
 import (
 	"book-a-nook/internal/booking"
 	"context"
+	"sort"
 	"sync"
 	"time"
 )
@@ -28,6 +29,7 @@ func NewStore() *Store {
 	}
 }
 
+// Resources
 func (s *Store) CreateResource(ctx context.Context, in booking.CreateResourceInput) (booking.Resource, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -50,6 +52,7 @@ func (s *Store) CreateResource(ctx context.Context, in booking.CreateResourceInp
 	return resource, nil
 }
 
+// Users
 func (s *Store) CreateUser(ctx context.Context, in booking.CreateUserInput) (booking.User, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -72,6 +75,7 @@ func (s *Store) CreateUser(ctx context.Context, in booking.CreateUserInput) (boo
 	return user, nil
 }
 
+// Slots
 func (s *Store) CreateSlot(ctx context.Context, in booking.CreateSlotInput) (booking.Slot, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -82,6 +86,12 @@ func (s *Store) CreateSlot(ctx context.Context, in booking.CreateSlotInput) (boo
 
 	if _, exists := s.resources[in.ResourceID]; !exists {
 		return booking.Slot{}, booking.ErrResourceNotFound
+	}
+
+	for _, sl := range s.slots {
+		if sl.ResourceID == in.ResourceID && sl.StartsAt.Before(in.EndsAt) && in.StartsAt.Before(sl.EndsAt) {
+			return booking.Slot{}, booking.ErrSlotOverlap
+		}
 	}
 
 	slot := booking.Slot{
@@ -98,6 +108,33 @@ func (s *Store) CreateSlot(ctx context.Context, in booking.CreateSlotInput) (boo
 	return slot, nil
 }
 
+func (s *Store) ListSlots(ctx context.Context, in booking.ListSlotsInput) ([]booking.Slot, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+
+	result := make([]booking.Slot, 0)
+	for _, slot := range s.slots {
+		if slot.ResourceID == in.ResourceID {
+			result = append(result, slot)
+		}
+	}
+
+	sort.Slice(result, func(i, j int) bool {
+		return result[i].ID < result[j].ID
+	})
+
+	if len(result) > in.Limit {
+		result = result[:in.Limit]
+	}
+
+	return result, nil
+}
+
+// Bookings
 func (s *Store) CreateBooking(ctx context.Context, in booking.CreateBookingInput) (booking.Booking, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -118,9 +155,6 @@ func (s *Store) CreateBooking(ctx context.Context, in booking.CreateBookingInput
 		if b.SlotID == in.SlotID && b.Status == booking.StatusActive {
 			return booking.Booking{}, booking.ErrSlotAlreadyBooked
 		}
-		if slotsOverlap(s.slots[b.SlotID], s.slots[in.SlotID]) && b.Status == booking.StatusActive {
-			return booking.Booking{}, booking.ErrBookingOverlap
-		}
 	}
 
 	booking := booking.Booking{
@@ -137,8 +171,41 @@ func (s *Store) CreateBooking(ctx context.Context, in booking.CreateBookingInput
 	return booking, nil
 }
 
-func slotsOverlap(a, b booking.Slot) bool {
-	return a.ResourceID == b.ResourceID &&
-		a.StartsAt.Before(b.EndsAt) &&
-		b.StartsAt.Before(a.EndsAt)
+func (s *Store) GetBooking(ctx context.Context, in booking.GetBookingInput) (booking.Booking, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if err := ctx.Err(); err != nil {
+		return booking.Booking{}, err
+	}
+
+	b, exists := s.bookings[in.ID]
+	if !exists {
+		return booking.Booking{}, booking.ErrBookingNotFound
+	}
+
+	return b, nil
+}
+
+func (s *Store) CancelBooking(ctx context.Context, in booking.CancelBookingInput) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+
+	b, exists := s.bookings[in.ID]
+	if !exists {
+		return booking.ErrBookingNotFound
+	}
+
+	if b.UserID != in.UserID {
+		return booking.ErrBookingNotFound
+	}
+
+	b.Status = booking.StatusCancelled
+	s.bookings[in.ID] = b
+
+	return nil
 }

@@ -253,3 +253,164 @@ func TestCreateSlotInvalidRequest(t *testing.T) {
 		})
 	}
 }
+
+func TestCreateSlotOverlap(t *testing.T) {
+	start := time.Now()
+	tests := []struct {
+		name       string
+		input      booking.CreateSlotInput
+		wantStatus int
+		wantError  error
+	}{
+		{
+			name: "identical times",
+			input: booking.CreateSlotInput{
+				ResourceID: "nook-1",
+				StartsAt:   start,
+				EndsAt:     start.Add(60 * time.Minute),
+			},
+			wantStatus: http.StatusConflict,
+			wantError:  booking.ErrSlotOverlap,
+		},
+		{
+			name: "overlaps start",
+			input: booking.CreateSlotInput{
+				ResourceID: "nook-1",
+				StartsAt:   start.Add(-30 * time.Minute),
+				EndsAt:     start.Add(30 * time.Minute),
+			},
+			wantStatus: http.StatusConflict,
+			wantError:  booking.ErrSlotOverlap,
+		},
+		{
+			name: "overlaps end",
+			input: booking.CreateSlotInput{
+				ResourceID: "nook-1",
+				StartsAt:   start.Add(30 * time.Minute),
+				EndsAt:     start.Add(90 * time.Minute),
+			},
+			wantStatus: http.StatusConflict,
+			wantError:  booking.ErrSlotOverlap,
+		},
+		{
+			name: "contained",
+			input: booking.CreateSlotInput{
+				ResourceID: "nook-1",
+				StartsAt:   start.Add(15 * time.Minute),
+				EndsAt:     start.Add(45 * time.Minute),
+			},
+			wantStatus: http.StatusConflict,
+			wantError:  booking.ErrSlotOverlap,
+		},
+		{
+			name: "contains",
+			input: booking.CreateSlotInput{
+				ResourceID: "nook-1",
+				StartsAt:   start.Add(-60 * time.Minute),
+				EndsAt:     start.Add(120 * time.Minute),
+			},
+			wantStatus: http.StatusConflict,
+			wantError:  booking.ErrSlotOverlap,
+		},
+		{
+			name: "adjacent before",
+			input: booking.CreateSlotInput{
+				ResourceID: "nook-1",
+				StartsAt:   start.Add(-60 * time.Minute),
+				EndsAt:     start,
+			},
+			wantStatus: http.StatusCreated,
+			wantError:  nil,
+		},
+		{
+			name: "adjacent after",
+			input: booking.CreateSlotInput{
+				ResourceID: "nook-1",
+				StartsAt:   start.Add(60 * time.Minute),
+				EndsAt:     start.Add(120 * time.Minute),
+			},
+			wantStatus: http.StatusCreated,
+			wantError:  nil,
+		},
+		{
+			name: "different times",
+			input: booking.CreateSlotInput{
+				ResourceID: "nook-1",
+				StartsAt:   start.Add(120 * time.Minute),
+				EndsAt:     start.Add(180 * time.Minute),
+			},
+			wantStatus: http.StatusCreated,
+			wantError:  nil,
+		},
+		{
+			name: "different resource",
+			input: booking.CreateSlotInput{
+				ResourceID: "nook-2",
+				StartsAt:   start,
+				EndsAt:     start.Add(60 * time.Minute),
+			},
+			wantStatus: http.StatusCreated,
+			wantError:  nil,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := context.Background()
+			service := booking.NewService(memory.NewStore())
+			for _, id := range []string{"nook-1", "nook-2"} {
+				if _, err := service.CreateResource(ctx, booking.CreateResourceInput{ID: id}); err != nil {
+					t.Fatalf("setup: CreateResource(): %v", err)
+				}
+			}
+			if _, err := service.CreateSlot(ctx, booking.CreateSlotInput{
+				ResourceID: "nook-1", StartsAt: start, EndsAt: start.Add(time.Hour),
+			}); err != nil {
+				t.Fatalf("setup: CreateSlot(): %v", err)
+			}
+
+			handler := httpapi.NewHandler(service)
+			body, err := json.Marshal(tt.input)
+			if err != nil {
+				t.Fatalf("Marshal(): %v", err)
+			}
+			response := request(handler, http.MethodPost, "/slots", "application/json", string(body))
+			if response.Code != tt.wantStatus {
+				t.Fatalf("status = %d, want %d", response.Code, tt.wantStatus)
+			}
+			if got := response.Header().Get("Content-Type"); got != "application/json" {
+				t.Errorf("Content-Type = %q, want application/json", got)
+			}
+			if tt.wantError != nil {
+				var body struct {
+					Error string `json:"error"`
+				}
+				if err := json.Unmarshal(response.Body.Bytes(), &body); err != nil {
+					t.Fatalf("Unmarshal(): %v", err)
+				}
+				if body.Error != tt.wantError.Error() {
+					t.Errorf("error = %q, want %q", body.Error, tt.wantError.Error())
+				}
+				return
+			}
+			var got booking.Slot
+			if err := json.Unmarshal(response.Body.Bytes(), &got); err != nil {
+				t.Fatalf("Unmarshal(): %v", err)
+			}
+			if got.ID <= 0 {
+				t.Errorf("ID = %d, want positive", got.ID)
+			}
+			if got.ResourceID != tt.input.ResourceID {
+				t.Errorf("ResourceID = %q, want %q", got.ResourceID, tt.input.ResourceID)
+			}
+			if !got.StartsAt.Equal(tt.input.StartsAt) {
+				t.Errorf("StartsAt = %v, want %v", got.StartsAt, tt.input.StartsAt)
+			}
+			if !got.EndsAt.Equal(tt.input.EndsAt) {
+				t.Errorf("EndsAt = %v, want %v", got.EndsAt, tt.input.EndsAt)
+			}
+			if got.CreatedAt.IsZero() {
+				t.Error("CreatedAt is zero")
+			}
+		})
+	}
+}

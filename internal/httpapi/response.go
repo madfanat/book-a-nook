@@ -38,7 +38,7 @@ func writeServiceError(w http.ResponseWriter, err error) {
 	case errors.Is(err, booking.ErrResourceExists),
 		errors.Is(err, booking.ErrUserExists),
 		errors.Is(err, booking.ErrSlotAlreadyBooked),
-		errors.Is(err, booking.ErrBookingOverlap):
+		errors.Is(err, booking.ErrSlotOverlap):
 		writeError(w, http.StatusConflict, err.Error())
 
 	default:

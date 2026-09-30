@@ -17,9 +17,14 @@ var (
 	ErrInvalidSlotID    = errors.New("invalid slot ID")
 	ErrSlotNotFound     = errors.New("slot not found")
 	ErrInvalidTimeRange = errors.New("invalid time range")
+	ErrSlotOverlap      = errors.New("slots overlap")
 
 	// Bookings
+	ErrInvalidBookingID     = errors.New("invalid booking ID")
+	ErrBookingNotFound      = errors.New("booking not found")
 	ErrInvalidBookingStatus = errors.New("invalid status")
 	ErrSlotAlreadyBooked    = errors.New("slot is already booked")
-	ErrBookingOverlap       = errors.New("slots overlap")
+
+	// Other
+	ErrInvalidLimit = errors.New("invalid limit")
 )
