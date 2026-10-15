@@ -3,6 +3,7 @@ package httpapi
 import (
 	"book-a-nook/internal/booking"
 	"net/http"
+	"strconv"
 )
 
 func (handler *Handler) createBooking(w http.ResponseWriter, r *http.Request) {
@@ -19,4 +20,25 @@ func (handler *Handler) createBooking(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, http.StatusCreated, booking)
+}
+
+func (handler *Handler) getBooking(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.Atoi(r.PathValue("id"))
+	if err != nil {
+		writeError(w, http.StatusBadRequest, booking.ErrInvalidBookingID.Error())
+		return
+	}
+
+	input := booking.GetBookingInput{
+		ID:     id,
+		UserID: r.URL.Query().Get("user_id"),
+	}
+
+	found, err := handler.service.GetBooking(r.Context(), input)
+	if err != nil {
+		writeServiceError(w, err)
+		return
+	}
+
+	writeJSON(w, http.StatusOK, found)
 }

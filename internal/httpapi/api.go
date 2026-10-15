@@ -18,6 +18,9 @@ func NewHandler(service *booking.Service) http.Handler {
 	mux.HandleFunc("POST /slots", handler.createSlot)
 	mux.HandleFunc("POST /bookings", handler.createBooking)
 
+	mux.HandleFunc("GET /bookings/{id}", handler.getBooking)
+	mux.HandleFunc("GET /slots", handler.listSlots)
+
 	return mux
 }
 

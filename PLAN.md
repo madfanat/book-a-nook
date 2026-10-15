@@ -155,7 +155,7 @@ Each day combines **75 minutes of theory, 210 minutes of implementation, 45 minu
 
 ### Project day 6 — Operable service, ownership and containers
 
-**Three-week schedule:** day 6.
+**Three-week schedule:** day 6.c
 
 **Learn:** [Docker Go guide](https://docs.docker.com/guides/golang/), [Compose lifecycle](https://docs.docker.com/compose/how-tos/startup-order/), [slog](https://go.dev/blog/slog), [OWASP object-level authorization](https://owasp.org/API-Security/editions/2023/en/0x11-t10/).
 

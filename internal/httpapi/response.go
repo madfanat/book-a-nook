@@ -27,12 +27,15 @@ func writeServiceError(w http.ResponseWriter, err error) {
 	case errors.Is(err, booking.ErrInvalidResourceID),
 		errors.Is(err, booking.ErrInvalidUserID),
 		errors.Is(err, booking.ErrInvalidSlotID),
-		errors.Is(err, booking.ErrInvalidTimeRange):
+		errors.Is(err, booking.ErrInvalidBookingID),
+		errors.Is(err, booking.ErrInvalidTimeRange),
+		errors.Is(err, booking.ErrInvalidLimit):
 		writeError(w, http.StatusBadRequest, err.Error())
 
 	case errors.Is(err, booking.ErrResourceNotFound),
 		errors.Is(err, booking.ErrUserNotFound),
-		errors.Is(err, booking.ErrSlotNotFound):
+		errors.Is(err, booking.ErrSlotNotFound),
+		errors.Is(err, booking.ErrBookingNotFound):
 		writeError(w, http.StatusNotFound, err.Error())
 
 	case errors.Is(err, booking.ErrResourceExists),
