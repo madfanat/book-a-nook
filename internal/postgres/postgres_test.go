@@ -5,6 +5,7 @@ import (
 	"book-a-nook/internal/postgres"
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"testing"
 	"time"
@@ -90,7 +91,8 @@ func seedBooking(t *testing.T, ctx context.Context, store *postgres.Store) booki
 	slot := seedSlot(t, ctx, store)
 
 	created, err := store.CreateBooking(ctx, booking.CreateBookingInput{
-		SlotID: slot.ID, UserID: "tim",
+		RequestKey: "request-1",
+		SlotID:     slot.ID, UserID: "tim",
 	})
 	if err != nil {
 		t.Fatalf("setup: CreateBooking(): %v", err)
@@ -438,7 +440,7 @@ func TestCreateBookingValid(t *testing.T) {
 	seedUsers(t, ctx, store, "tim")
 	slot := seedSlot(t, ctx, store)
 
-	in := booking.CreateBookingInput{SlotID: slot.ID, UserID: "tim"}
+	in := booking.CreateBookingInput{RequestKey: "request-2", SlotID: slot.ID, UserID: "tim"}
 
 	got, err := store.CreateBooking(ctx, in)
 	if err != nil {
@@ -472,7 +474,7 @@ func TestCreateBookingMissingSlot(t *testing.T) {
 	seedUsers(t, ctx, store, "tim")
 	slot := seedSlot(t, ctx, store)
 
-	_, err := store.CreateBooking(ctx, booking.CreateBookingInput{SlotID: slot.ID + 1, UserID: "tim"})
+	_, err := store.CreateBooking(ctx, booking.CreateBookingInput{RequestKey: "request-3", SlotID: slot.ID + 1, UserID: "tim"})
 	if !errors.Is(err, booking.ErrSlotNotFound) {
 		t.Fatalf("CreateBooking() error = %v, want %v", err, booking.ErrSlotNotFound)
 	}
@@ -492,7 +494,7 @@ func TestCreateBookingMissingUser(t *testing.T) {
 	seedUsers(t, ctx, store, "tim")
 	slot := seedSlot(t, ctx, store)
 
-	_, err := store.CreateBooking(ctx, booking.CreateBookingInput{SlotID: slot.ID, UserID: "missing"})
+	_, err := store.CreateBooking(ctx, booking.CreateBookingInput{RequestKey: "request-4", SlotID: slot.ID, UserID: "missing"})
 	if !errors.Is(err, booking.ErrUserNotFound) {
 		t.Fatalf("CreateBooking() error = %v, want %v", err, booking.ErrUserNotFound)
 	}
@@ -512,7 +514,7 @@ func TestCreateBookingAlreadyBooked(t *testing.T) {
 	created := seedBooking(t, ctx, store)
 	seedUsers(t, ctx, store, "helen")
 
-	_, err := store.CreateBooking(ctx, booking.CreateBookingInput{SlotID: created.SlotID, UserID: "helen"})
+	_, err := store.CreateBooking(ctx, booking.CreateBookingInput{RequestKey: "request-5", SlotID: created.SlotID, UserID: "helen"})
 	if !errors.Is(err, booking.ErrSlotAlreadyBooked) {
 		t.Fatalf("CreateBooking() error = %v, want %v", err, booking.ErrSlotAlreadyBooked)
 	}
@@ -646,7 +648,7 @@ func TestCancelBookingMakesSlotBookable(t *testing.T) {
 		t.Fatalf("CancelBooking(): %v", err)
 	}
 
-	replacement, err := store.CreateBooking(ctx, booking.CreateBookingInput{SlotID: created.SlotID, UserID: "helen"})
+	replacement, err := store.CreateBooking(ctx, booking.CreateBookingInput{RequestKey: "request-6", SlotID: created.SlotID, UserID: "helen"})
 	if err != nil {
 		t.Fatalf("CreateBooking() after cancellation: %v", err)
 	}
@@ -725,10 +727,10 @@ func TestCreateBookingConcurrent(t *testing.T) {
 	start := make(chan struct{})
 
 	results := make(chan error, requests)
-	for range requests {
+	for index := range requests {
 		go func() {
 			<-start
-			_, err := store.CreateBooking(ctx, booking.CreateBookingInput{SlotID: slot.ID, UserID: "tim"})
+			_, err := store.CreateBooking(ctx, booking.CreateBookingInput{RequestKey: fmt.Sprintf("request-%d", index), SlotID: slot.ID, UserID: "tim"})
 			results <- err
 		}()
 	}

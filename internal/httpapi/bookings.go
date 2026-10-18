@@ -12,6 +12,7 @@ func (handler *Handler) createBooking(w http.ResponseWriter, r *http.Request) {
 		writeError(w, reqErr.status, reqErr.message)
 		return
 	}
+	input.RequestKey = r.Header.Get("Idempotency-Key")
 
 	booking, err := handler.service.CreateBooking(r.Context(), input)
 	if err != nil {

@@ -35,7 +35,7 @@ func TestCreateBookingValidRequest(t *testing.T) {
 		t.Fatalf("setup: CreateSlot() error: %v", err)
 	}
 
-	response := request(handler, http.MethodPost, "/bookings", "application/json",
+	response := requestBooking(handler, "application/json",
 		fmt.Sprintf(`{"slot_id":%d,"user_id":" tim "}`, slot.ID))
 	if response.Code != http.StatusCreated {
 		t.Fatalf("status = %d, want %d", response.Code, http.StatusCreated)
@@ -177,7 +177,7 @@ func TestCreateBookingInvalidRequest(t *testing.T) {
 			service := booking.NewService(memory.NewStore())
 			handler := httpapi.NewHandler(service)
 
-			response := request(handler, http.MethodPost, "/bookings", tt.contentType, tt.body)
+			response := requestBooking(handler, tt.contentType, tt.body)
 			if response.Code != tt.wantStatus {
 				t.Fatalf("status = %d, want %d", response.Code, tt.wantStatus)
 			}
@@ -220,7 +220,7 @@ func TestCreateBookingNonExistentUser(t *testing.T) {
 		t.Fatalf("setup: CreateSlot() error: %v", err)
 	}
 
-	response := request(handler, http.MethodPost, "/bookings", "application/json",
+	response := requestBooking(handler, "application/json",
 		fmt.Sprintf(`{"slot_id":%d,"user_id":%q}`, slot.ID, "missing"))
 	if response.Code != http.StatusNotFound {
 		t.Fatalf("status = %d, want %d", response.Code, http.StatusNotFound)
@@ -262,7 +262,7 @@ func TestCreateBookingNonExistentSlot(t *testing.T) {
 		t.Fatalf("setup: CreateSlot() error: %v", err)
 	}
 
-	response := request(handler, http.MethodPost, "/bookings", "application/json",
+	response := requestBooking(handler, "application/json",
 		fmt.Sprintf(`{"slot_id":%d,"user_id":%q}`, slot.ID+1, user.ID))
 	if response.Code != http.StatusNotFound {
 		t.Fatalf("status = %d, want %d", response.Code, http.StatusNotFound)
@@ -304,11 +304,11 @@ func TestCreateBookingAlreadyBookedSlot(t *testing.T) {
 		t.Fatalf("setup: CreateSlot() error: %v", err)
 	}
 
-	if _, err := service.CreateBooking(ctx, booking.CreateBookingInput{SlotID: slot.ID, UserID: user.ID}); err != nil {
+	if _, err := service.CreateBooking(ctx, booking.CreateBookingInput{RequestKey: "request-1", SlotID: slot.ID, UserID: user.ID}); err != nil {
 		t.Fatalf("setup: CreateBooking() error: %v", err)
 	}
 
-	response := request(handler, http.MethodPost, "/bookings", "application/json",
+	response := requestBooking(handler, "application/json",
 		fmt.Sprintf(`{"slot_id":%d,"user_id":%q}`, slot.ID, user.ID))
 	if response.Code != http.StatusConflict {
 		t.Fatalf("status = %d, want %d", response.Code, http.StatusConflict)

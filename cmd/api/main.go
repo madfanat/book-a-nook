@@ -77,8 +77,9 @@ func run() error {
 	b, err := store.CreateBooking(
 		ctx,
 		booking.CreateBookingInput{
-			SlotID: 1,
-			UserID: "tim"},
+			RequestKey: "request-1",
+			SlotID:     1,
+			UserID:     "tim"},
 	)
 	if err != nil {
 		return err
@@ -104,8 +105,9 @@ func run() error {
 	newBooking, err := store.CreateBooking(
 		ctx,
 		booking.CreateBookingInput{
-			SlotID: 1,
-			UserID: "tim"},
+			RequestKey: "request-2",
+			SlotID:     1,
+			UserID:     "tim"},
 	)
 	if err != nil {
 		return err

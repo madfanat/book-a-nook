@@ -15,14 +15,14 @@ func (s *Store) CreateBooking(
 	in booking.CreateBookingInput,
 ) (booking.Booking, error) {
 	const query = `
-		INSERT INTO bookings (slot_id, user_id)
-		VALUES ($1, $2)
+		INSERT INTO bookings (slot_id, user_id, request_key, request_hash)
+		VALUES ($1, $2, $3, $4)
 		RETURNING id, slot_id, user_id, status, created_at
 	`
 
 	var created booking.Booking
 
-	err := s.pool.QueryRow(ctx, query, in.SlotID, in.UserID).Scan(
+	err := s.pool.QueryRow(ctx, query, in.SlotID, in.UserID, in.RequestKey, in.RequestHash()).Scan(
 		&created.ID,
 		&created.SlotID,
 		&created.UserID,
@@ -45,6 +45,11 @@ func (s *Store) CreateBooking(
 			pgErr.Code == "23505" &&
 			pgErr.ConstraintName == "bookings_one_active_per_slot" {
 			return booking.Booking{}, booking.ErrSlotAlreadyBooked
+		}
+		if errors.As(err, &pgErr) &&
+			pgErr.Code == "23505" &&
+			pgErr.ConstraintName == "bookings_user_request_key_unique" {
+			return booking.Booking{}, booking.ErrIdempotencyConflict
 		}
 
 		return booking.Booking{}, fmt.Errorf(

@@ -28,6 +28,7 @@ func writeServiceError(w http.ResponseWriter, err error) {
 		errors.Is(err, booking.ErrInvalidUserID),
 		errors.Is(err, booking.ErrInvalidSlotID),
 		errors.Is(err, booking.ErrInvalidBookingID),
+		errors.Is(err, booking.ErrInvalidRequestKey),
 		errors.Is(err, booking.ErrInvalidTimeRange),
 		errors.Is(err, booking.ErrInvalidLimit):
 		writeError(w, http.StatusBadRequest, err.Error())
@@ -41,6 +42,7 @@ func writeServiceError(w http.ResponseWriter, err error) {
 	case errors.Is(err, booking.ErrResourceExists),
 		errors.Is(err, booking.ErrUserExists),
 		errors.Is(err, booking.ErrSlotAlreadyBooked),
+		errors.Is(err, booking.ErrIdempotencyConflict),
 		errors.Is(err, booking.ErrSlotOverlap):
 		writeError(w, http.StatusConflict, err.Error())
 

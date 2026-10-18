@@ -1,6 +1,10 @@
 package booking
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
+	"strconv"
+	"strings"
 	"time"
 )
 
@@ -120,15 +124,32 @@ type Booking struct {
 }
 
 type CreateBookingInput struct {
-	SlotID int    `json:"slot_id"`
-	UserID string `json:"user_id"`
+	SlotID     int    `json:"slot_id"`
+	UserID     string `json:"user_id"`
+	RequestKey string `json:"-"`
 }
 
 func (in CreateBookingInput) Validate() error {
 	if in.SlotID <= 0 {
 		return ErrInvalidSlotID
 	}
-	return validateUserID(in.UserID)
+	if err := validateUserID(in.UserID); err != nil {
+		return err
+	}
+	if strings.TrimSpace(in.RequestKey) == "" ||
+		len(in.RequestKey) > 128 ||
+		strings.HasPrefix(in.RequestKey, "__legacy_booking__:") {
+		return ErrInvalidRequestKey
+	}
+	return nil
+}
+
+// RequestHash fingerprints the validated creation payload, independently of
+// JSON formatting, user identity, request key, or the booking's current status.
+func (in CreateBookingInput) RequestHash() string {
+	canonical := "slot_id:" + strconv.Itoa(in.SlotID)
+	sum := sha256.Sum256([]byte(canonical))
+	return hex.EncodeToString(sum[:])
 }
 
 type GetBookingInput struct {

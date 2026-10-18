@@ -695,8 +695,9 @@ func TestCreateBookingValidInput(t *testing.T) {
 	got, err := service.CreateBooking(
 		ctx,
 		booking.CreateBookingInput{
-			SlotID: slot.ID,
-			UserID: user.ID,
+			RequestKey: "request-1",
+			SlotID:     slot.ID,
+			UserID:     user.ID,
 		},
 	)
 	if err != nil {
@@ -729,32 +730,36 @@ func TestCreateBookingInvalidInput(t *testing.T) {
 		{
 			name: "zero SlotID",
 			input: booking.CreateBookingInput{
-				SlotID: 0,
-				UserID: "tim",
+				RequestKey: "request-2",
+				SlotID:     0,
+				UserID:     "tim",
 			},
 			want: booking.ErrInvalidSlotID,
 		},
 		{
 			name: "negative SlotID",
 			input: booking.CreateBookingInput{
-				SlotID: -1,
-				UserID: "tim",
+				RequestKey: "request-3",
+				SlotID:     -1,
+				UserID:     "tim",
 			},
 			want: booking.ErrInvalidSlotID,
 		},
 		{
 			name: "empty UserID",
 			input: booking.CreateBookingInput{
-				SlotID: 1,
-				UserID: "",
+				RequestKey: "request-4",
+				SlotID:     1,
+				UserID:     "",
 			},
 			want: booking.ErrInvalidUserID,
 		},
 		{
 			name: "whitespace UserID",
 			input: booking.CreateBookingInput{
-				SlotID: 1,
-				UserID: " ",
+				RequestKey: "request-5",
+				SlotID:     1,
+				UserID:     " ",
 			},
 			want: booking.ErrInvalidUserID,
 		},
@@ -808,8 +813,9 @@ func TestCreateBookingMissingUser(t *testing.T) {
 	}
 
 	_, err = service.CreateBooking(ctx, booking.CreateBookingInput{
-		SlotID: slot.ID,
-		UserID: "helen",
+		RequestKey: "request-6",
+		SlotID:     slot.ID,
+		UserID:     "helen",
 	})
 	if !errors.Is(err, booking.ErrUserNotFound) {
 		t.Fatalf("CreateBooking() error = %v, want %v",
@@ -847,8 +853,9 @@ func TestCreateBookingNonExistentSlot(t *testing.T) {
 	}
 
 	in := booking.CreateBookingInput{
-		SlotID: 2,
-		UserID: "tim",
+		RequestKey: "request-7",
+		SlotID:     2,
+		UserID:     "tim",
 	}
 
 	_, err := service.CreateBooking(ctx, in)
@@ -889,16 +896,18 @@ func TestCreateBookingAlreadyBookedSlot(t *testing.T) {
 	}
 
 	in := booking.CreateBookingInput{
-		SlotID: 1,
-		UserID: "tim",
+		RequestKey: "request-8",
+		SlotID:     1,
+		UserID:     "tim",
 	}
 	if _, err := service.CreateBooking(ctx, in); err != nil {
 		t.Fatalf("setup: CreateBooking() error = %v", err)
 	}
 
 	in = booking.CreateBookingInput{
-		SlotID: 1,
-		UserID: "tim",
+		RequestKey: "request-9",
+		SlotID:     1,
+		UserID:     "tim",
 	}
 
 	_, err := service.CreateBooking(ctx, in)
@@ -937,8 +946,9 @@ func TestGetBookingValidInput(t *testing.T) {
 	}
 
 	want, err := service.CreateBooking(ctx, booking.CreateBookingInput{
-		SlotID: slot.ID,
-		UserID: "tim",
+		RequestKey: "request-10",
+		SlotID:     slot.ID,
+		UserID:     "tim",
 	})
 	if err != nil {
 		t.Fatalf("setup: CreateBooking(): %v", err)
@@ -1043,8 +1053,9 @@ func TestGetBookingMissing(t *testing.T) {
 			}
 
 			created, err := service.CreateBooking(ctx, booking.CreateBookingInput{
-				SlotID: slot.ID,
-				UserID: "tim",
+				RequestKey: "request-11",
+				SlotID:     slot.ID,
+				UserID:     "tim",
 			})
 			if err != nil {
 				t.Fatalf("setup: CreateBooking(): %v", err)
@@ -1134,8 +1145,9 @@ func TestCancelBookingValidInput(t *testing.T) {
 	}
 
 	created, err := service.CreateBooking(ctx, booking.CreateBookingInput{
-		SlotID: slot.ID,
-		UserID: "tim",
+		RequestKey: "request-12",
+		SlotID:     slot.ID,
+		UserID:     "tim",
 	})
 	if err != nil {
 		t.Fatalf("setup: CreateBooking(): %v", err)
@@ -1192,8 +1204,9 @@ func TestCancelBookingAlreadyCancelled(t *testing.T) {
 	}
 
 	created, err := service.CreateBooking(ctx, booking.CreateBookingInput{
-		SlotID: slot.ID,
-		UserID: "tim",
+		RequestKey: "request-13",
+		SlotID:     slot.ID,
+		UserID:     "tim",
 	})
 	if err != nil {
 		t.Fatalf("setup: CreateBooking(): %v", err)
@@ -1255,8 +1268,9 @@ func TestCancelBookingMakesSlotBookable(t *testing.T) {
 	}
 
 	created, err := service.CreateBooking(ctx, booking.CreateBookingInput{
-		SlotID: slot.ID,
-		UserID: "tim",
+		RequestKey: "request-14",
+		SlotID:     slot.ID,
+		UserID:     "tim",
 	})
 	if err != nil {
 		t.Fatalf("setup: CreateBooking(): %v", err)
@@ -1276,7 +1290,7 @@ func TestCancelBookingMakesSlotBookable(t *testing.T) {
 	if !errors.Is(err, booking.ErrSlotOverlap) {
 		t.Fatalf("CreateSlot() after cancellation error = %v, want %v", err, booking.ErrSlotOverlap)
 	}
-	replacement, err := service.CreateBooking(ctx, booking.CreateBookingInput{SlotID: slot.ID, UserID: "tim"})
+	replacement, err := service.CreateBooking(ctx, booking.CreateBookingInput{RequestKey: "request-15", SlotID: slot.ID, UserID: "tim"})
 	if err != nil {
 		t.Fatalf("CreateBooking() for original slot: %v", err)
 	}
@@ -1340,8 +1354,9 @@ func TestCancelBookingMissing(t *testing.T) {
 			}
 
 			created, err := service.CreateBooking(ctx, booking.CreateBookingInput{
-				SlotID: slot.ID,
-				UserID: "tim",
+				RequestKey: "request-16",
+				SlotID:     slot.ID,
+				UserID:     "tim",
 			})
 			if err != nil {
 				t.Fatalf("setup: CreateBooking(): %v", err)

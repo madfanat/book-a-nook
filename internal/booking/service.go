@@ -42,7 +42,9 @@ type Store interface {
 	// ErrSlotNotFound if the slot does not exist, or
 	// ErrSlotAlreadyBooked if the slot is already booked.
 	//
-	// Cancelled bookings do not prevent creation.
+	// Cancelled bookings do not prevent creation with a new request key.
+	// Requests must include a valid RequestKey. Idempotent replay is not yet
+	// implemented.
 	CreateBooking(ctx context.Context, in CreateBookingInput) (Booking, error)
 
 	// GetBooking retrieves a booking by its ID and UserID.
@@ -143,10 +145,11 @@ func (s *Service) ListSlots(ctx context.Context, in ListSlotsInput) ([]Slot, err
 }
 
 // CreateBooking trims leading and trailing whitespace from the
-// UserID, validates the normalized input, and creates a resource.
+// UserID, validates the normalized input and request key, and creates a booking.
 //
 // It returns ErrInvalidSlotID if the SlotID is invalid,
 // ErrInvalidUserID if the UserID is invalid,
+// ErrInvalidRequestKey if the request key is invalid,
 // ErrUserNotFound if the user does not exist,
 // ErrSlotNotFound if the slot does not exist, or
 // ErrSlotAlreadyBooked if the slot is already booked,

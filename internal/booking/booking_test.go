@@ -237,32 +237,36 @@ func TestCreateBookingInputValidate(t *testing.T) {
 		{
 			name: "valid",
 			input: CreateBookingInput{
-				SlotID: 1,
-				UserID: "tim",
+				RequestKey: "request-1",
+				SlotID:     1,
+				UserID:     "tim",
 			},
 			want: nil,
 		},
 		{
 			name: "zero SlotID",
 			input: CreateBookingInput{
-				SlotID: 0,
-				UserID: "tim",
+				RequestKey: "request-2",
+				SlotID:     0,
+				UserID:     "tim",
 			},
 			want: ErrInvalidSlotID,
 		},
 		{
 			name: "negative SlotID",
 			input: CreateBookingInput{
-				SlotID: -1,
-				UserID: "tim",
+				RequestKey: "request-3",
+				SlotID:     -1,
+				UserID:     "tim",
 			},
 			want: ErrInvalidSlotID,
 		},
 		{
 			name: "empty UserID",
 			input: CreateBookingInput{
-				SlotID: 1,
-				UserID: "",
+				RequestKey: "request-4",
+				SlotID:     1,
+				UserID:     "",
 			},
 			want: ErrInvalidUserID,
 		},

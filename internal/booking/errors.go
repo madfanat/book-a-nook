@@ -24,6 +24,8 @@ var (
 	ErrBookingNotFound      = errors.New("booking not found")
 	ErrInvalidBookingStatus = errors.New("invalid status")
 	ErrSlotAlreadyBooked    = errors.New("slot is already booked")
+	ErrInvalidRequestKey    = errors.New("invalid idempotency key")
+	ErrIdempotencyConflict  = errors.New("idempotency key conflict")
 
 	// Other
 	ErrInvalidLimit = errors.New("invalid limit")
