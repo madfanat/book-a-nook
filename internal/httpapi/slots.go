@@ -6,22 +6,6 @@ import (
 	"strconv"
 )
 
-func (handler *Handler) createSlot(w http.ResponseWriter, r *http.Request) {
-	input, reqErr := readJSON[booking.CreateSlotInput](r)
-	if reqErr != nil {
-		writeError(w, reqErr.status, reqErr.message)
-		return
-	}
-
-	slot, err := handler.service.CreateSlot(r.Context(), input)
-	if err != nil {
-		writeServiceError(w, err)
-		return
-	}
-
-	writeJSON(w, http.StatusCreated, slot)
-}
-
 func (handler *Handler) listSlots(w http.ResponseWriter, r *http.Request) {
 	input := booking.ListSlotsInput{}
 
@@ -37,6 +21,15 @@ func (handler *Handler) listSlots(w http.ResponseWriter, r *http.Request) {
 		}
 
 		input.Limit = limit
+	}
+
+	if values, present := query["after"]; present {
+		after, err := strconv.Atoi(values[0])
+		if err != nil || after < 0 {
+			writeError(w, http.StatusBadRequest, booking.ErrInvalidCursor.Error())
+			return
+		}
+		input.After = after
 	}
 
 	slots, err := handler.service.ListSlots(r.Context(), input)

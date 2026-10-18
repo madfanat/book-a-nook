@@ -35,16 +35,15 @@ type Store interface {
 	ListSlots(ctx context.Context, in ListSlotsInput) ([]Slot, error)
 
 	// CreateBooking stores a booking from validated input.
-	// On success, it returns the booking with ID, SlotID, UserID,
-	// StatusActive, and CreatedAt.
+	// On success, it returns a new booking or the existing booking's current state.
 	//
 	// It returns ErrUserNotFound if the user does not exist,
 	// ErrSlotNotFound if the slot does not exist, or
 	// ErrSlotAlreadyBooked if the slot is already booked.
 	//
 	// Cancelled bookings do not prevent creation with a new request key.
-	// Requests must include a valid RequestKey. Idempotent replay is not yet
-	// implemented.
+	// Matching user/key/payload requests replay the booking's current state.
+	// Reusing a key with a different payload returns ErrIdempotencyConflict.
 	CreateBooking(ctx context.Context, in CreateBookingInput) (Booking, error)
 
 	// GetBooking retrieves a booking by its ID and UserID.
@@ -199,6 +198,9 @@ func (s *Service) CancelBooking(ctx context.Context, in CancelBookingInput) erro
 	in.UserID = strings.TrimSpace(in.UserID)
 
 	if err := in.Validate(); err != nil {
+		return err
+	}
+	if _, err := s.GetBooking(ctx, GetBookingInput{ID: in.ID, UserID: in.UserID}); err != nil {
 		return err
 	}
 	return s.store.CancelBooking(ctx, in)

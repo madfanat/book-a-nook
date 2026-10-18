@@ -76,12 +76,12 @@ func (s *Store) ListSlots(
 	const query = `
 		SELECT id, resource_id, starts_at, ends_at, created_at
 		FROM slots
-		WHERE resource_id = $1
+		WHERE resource_id = $1 AND id > $3
 		ORDER BY id
 		LIMIT $2
 	`
 
-	rows, err := s.pool.Query(ctx, query, in.ResourceID, in.Limit)
+	rows, err := s.pool.Query(ctx, query, in.ResourceID, in.Limit, in.After)
 	if err != nil {
 		return nil, fmt.Errorf("ListSlots: %w", err)
 	}

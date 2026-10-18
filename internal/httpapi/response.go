@@ -4,7 +4,7 @@ import (
 	"book-a-nook/internal/booking"
 	"encoding/json"
 	"errors"
-	"log"
+	"log/slog"
 	"net/http"
 )
 
@@ -12,7 +12,7 @@ func writeJSON(w http.ResponseWriter, status int, data any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	if err := json.NewEncoder(w).Encode(data); err != nil {
-		log.Printf("writeJSON error: %v", err)
+		slog.Error("write response", "error", err)
 	}
 }
 
@@ -30,7 +30,8 @@ func writeServiceError(w http.ResponseWriter, err error) {
 		errors.Is(err, booking.ErrInvalidBookingID),
 		errors.Is(err, booking.ErrInvalidRequestKey),
 		errors.Is(err, booking.ErrInvalidTimeRange),
-		errors.Is(err, booking.ErrInvalidLimit):
+		errors.Is(err, booking.ErrInvalidLimit),
+		errors.Is(err, booking.ErrInvalidCursor):
 		writeError(w, http.StatusBadRequest, err.Error())
 
 	case errors.Is(err, booking.ErrResourceNotFound),
@@ -47,7 +48,7 @@ func writeServiceError(w http.ResponseWriter, err error) {
 		writeError(w, http.StatusConflict, err.Error())
 
 	default:
-		log.Printf("service error: %v", err)
+		slog.Error("handle request", "error", err)
 		writeError(w, http.StatusInternalServerError, "internal server error")
 	}
 }

@@ -14,6 +14,10 @@ func (s *Store) CreateBooking(
 	ctx context.Context,
 	in booking.CreateBookingInput,
 ) (booking.Booking, error) {
+	if existing, err := s.replayBooking(ctx, in); !errors.Is(err, pgx.ErrNoRows) {
+		return existing, err
+	}
+
 	const query = `
 		INSERT INTO bookings (slot_id, user_id, request_key, request_hash)
 		VALUES ($1, $2, $3, $4)
@@ -31,6 +35,11 @@ func (s *Store) CreateBooking(
 	)
 	if err != nil {
 		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+			if existing, replayErr := s.replayBooking(ctx, in); !errors.Is(replayErr, pgx.ErrNoRows) {
+				return existing, replayErr
+			}
+		}
 		if errors.As(err, &pgErr) &&
 			pgErr.Code == "23503" &&
 			pgErr.ConstraintName == "bookings_slot_fk" {
@@ -58,6 +67,27 @@ func (s *Store) CreateBooking(
 	}
 
 	return created, nil
+}
+
+func (s *Store) replayBooking(ctx context.Context, in booking.CreateBookingInput) (booking.Booking, error) {
+	const query = `
+		SELECT id, slot_id, user_id, status, created_at, request_hash
+		FROM bookings
+		WHERE user_id = $1 AND request_key = $2
+	`
+	var existing booking.Booking
+	var hash string
+	err := s.pool.QueryRow(ctx, query, in.UserID, in.RequestKey).Scan(
+		&existing.ID, &existing.SlotID, &existing.UserID,
+		&existing.Status, &existing.CreatedAt, &hash,
+	)
+	if err != nil {
+		return booking.Booking{}, fmt.Errorf("find booking request: %w", err)
+	}
+	if hash != in.RequestHash() {
+		return booking.Booking{}, booking.ErrIdempotencyConflict
+	}
+	return existing, nil
 }
 
 func (s *Store) GetBooking(

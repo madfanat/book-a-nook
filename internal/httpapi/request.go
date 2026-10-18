@@ -2,12 +2,15 @@ package httpapi
 
 import (
 	"encoding/json"
+	"errors"
 	"io"
 	"mime"
 	"net/http"
 )
 
-func readJSON[T any](r *http.Request) (T, *RequestError) {
+const maxBodyBytes = 16 << 10
+
+func readJSON[T any](w http.ResponseWriter, r *http.Request) (T, *RequestError) {
 	var zero T
 	var input T
 
@@ -17,9 +20,11 @@ func readJSON[T any](r *http.Request) (T, *RequestError) {
 		return zero, ErrInvalidContentType
 	}
 
+	r.Body = http.MaxBytesReader(w, r.Body, maxBodyBytes)
 	decoder := json.NewDecoder(r.Body)
+	decoder.DisallowUnknownFields()
 	if err := decoder.Decode(&input); err != nil {
-		return zero, ErrInvalidBody
+		return zero, bodyError(err)
 	}
 
 	if err := decoder.Decode(&struct{}{}); err != io.EOF {
@@ -27,8 +32,16 @@ func readJSON[T any](r *http.Request) (T, *RequestError) {
 			return zero, ErrMultipleJSONValues
 		}
 
-		return zero, ErrInvalidBody
+		return zero, bodyError(err)
 	}
 
 	return input, nil
+}
+
+func bodyError(err error) *RequestError {
+	var tooLarge *http.MaxBytesError
+	if errors.As(err, &tooLarge) {
+		return ErrBodyTooLarge
+	}
+	return ErrInvalidBody
 }

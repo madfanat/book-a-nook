@@ -28,5 +28,6 @@ var (
 	ErrIdempotencyConflict  = errors.New("idempotency key conflict")
 
 	// Other
-	ErrInvalidLimit = errors.New("invalid limit")
+	ErrInvalidLimit  = errors.New("invalid limit")
+	ErrInvalidCursor = errors.New("invalid cursor")
 )

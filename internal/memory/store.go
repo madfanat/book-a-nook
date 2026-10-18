@@ -14,8 +14,14 @@ type Store struct {
 	users         map[string]booking.User
 	slots         map[int]booking.Slot
 	bookings      map[int]booking.Booking
+	requests      map[requestID]int
 	nextSlotID    int
 	nextBookingID int
+}
+
+type requestID struct {
+	userID string
+	key    string
 }
 
 func NewStore() *Store {
@@ -24,6 +30,7 @@ func NewStore() *Store {
 		users:         make(map[string]booking.User),
 		slots:         make(map[int]booking.Slot),
 		bookings:      make(map[int]booking.Booking),
+		requests:      make(map[requestID]int),
 		nextSlotID:    1,
 		nextBookingID: 1,
 	}
@@ -122,7 +129,7 @@ func (s *Store) ListSlots(ctx context.Context, in booking.ListSlotsInput) ([]boo
 
 	result := make([]booking.Slot, 0)
 	for _, slot := range s.slots {
-		if slot.ResourceID == in.ResourceID {
+		if slot.ResourceID == in.ResourceID && slot.ID > in.After {
 			result = append(result, slot)
 		}
 	}
@@ -145,6 +152,14 @@ func (s *Store) CreateBooking(ctx context.Context, in booking.CreateBookingInput
 
 	if err := ctx.Err(); err != nil {
 		return booking.Booking{}, err
+	}
+	key := requestID{userID: in.UserID, key: in.RequestKey}
+	if id, exists := s.requests[key]; exists {
+		existing := s.bookings[id]
+		if existing.SlotID != in.SlotID {
+			return booking.Booking{}, booking.ErrIdempotencyConflict
+		}
+		return existing, nil
 	}
 
 	if _, exists := s.slots[in.SlotID]; !exists {
@@ -170,6 +185,7 @@ func (s *Store) CreateBooking(ctx context.Context, in booking.CreateBookingInput
 	}
 
 	s.bookings[booking.ID] = booking
+	s.requests[key] = booking.ID
 	s.nextBookingID++
 
 	return booking, nil
@@ -184,7 +200,7 @@ func (s *Store) GetBooking(ctx context.Context, in booking.GetBookingInput) (boo
 	}
 
 	b, exists := s.bookings[in.ID]
-	if !exists {
+	if !exists || b.UserID != in.UserID {
 		return booking.Booking{}, booking.ErrBookingNotFound
 	}
 

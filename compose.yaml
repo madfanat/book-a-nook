@@ -11,6 +11,36 @@ services:
       - "127.0.0.1:6666:5432"
     volumes:
       - postgres_data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U bookanook -d bookanook"]
+      interval: 2s
+      timeout: 2s
+      retries: 15
+  migrate:
+    build:
+      context: .
+      target: tools
+    command: ["goose", "-dir", "/app/migrations", "up"]
+    environment:
+      GOOSE_DRIVER: postgres
+      GOOSE_DBSTRING: postgres://bookanook:bookanook@db:5432/bookanook?sslmode=disable
+    depends_on:
+      db:
+        condition: service_healthy
+  api:
+    build: .
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgres://bookanook:bookanook@db:5432/bookanook?sslmode=disable
+      HTTP_ADDR: :8080
+      DEV_TOKEN_TIM: ${DEV_TOKEN_TIM:?set DEV_TOKEN_TIM in .env}
+      DEV_TOKEN_HELEN: ${DEV_TOKEN_HELEN:?set DEV_TOKEN_HELEN in .env}
+    ports:
+      - "127.0.0.1:8080:8080"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    stop_grace_period: 10s
 
 volumes:
   postgres_data:

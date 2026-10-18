@@ -16,6 +16,8 @@ func (err *RequestError) Status() int {
 }
 
 var (
+	ErrBodyTooLarge = &RequestError{status: http.StatusRequestEntityTooLarge, message: "request body too large"}
+
 	ErrInvalidContentType = &RequestError{
 		status:  http.StatusUnsupportedMediaType,
 		message: "Content-Type must be application/json",

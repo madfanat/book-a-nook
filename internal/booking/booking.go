@@ -11,6 +11,7 @@ import (
 const (
 	DefaultSlotLimit = 20
 	MaxSlotLimit     = 100
+	maxID            = 1<<31 - 1
 )
 
 // Resources
@@ -86,6 +87,7 @@ func (in CreateSlotInput) Validate() error {
 type ListSlotsInput struct {
 	ResourceID string
 	Limit      int
+	After      int
 }
 
 func (in ListSlotsInput) Validate() error {
@@ -94,6 +96,9 @@ func (in ListSlotsInput) Validate() error {
 	}
 	if in.Limit < 1 || in.Limit > MaxSlotLimit {
 		return ErrInvalidLimit
+	}
+	if in.After < 0 || in.After > maxID {
+		return ErrInvalidCursor
 	}
 	return nil
 }
@@ -130,7 +135,7 @@ type CreateBookingInput struct {
 }
 
 func (in CreateBookingInput) Validate() error {
-	if in.SlotID <= 0 {
+	if in.SlotID <= 0 || in.SlotID > maxID {
 		return ErrInvalidSlotID
 	}
 	if err := validateUserID(in.UserID); err != nil {
@@ -177,7 +182,7 @@ func (in CancelBookingInput) Validate() error {
 }
 
 func validateBookingID(id int) error {
-	if id <= 0 {
+	if id <= 0 || id > maxID {
 		return ErrInvalidBookingID
 	}
 	return nil

@@ -11,7 +11,7 @@ import (
 
 func newTestHandler() http.Handler {
 	service := booking.NewService(memory.NewStore())
-	return httpapi.NewHandler(service)
+	return testHandler(service)
 }
 
 func request(
@@ -20,6 +20,7 @@ func request(
 	headers ...http.Header,
 ) *httptest.ResponseRecorder {
 	req := httptest.NewRequest(method, path, strings.NewReader(body))
+	req.Header.Set("Authorization", "Bearer tim-token")
 	if contentType != "" {
 		req.Header.Set("Content-Type", contentType)
 	}
@@ -36,6 +37,10 @@ func request(
 }
 
 func requestBooking(handler http.Handler, contentType, body string) *httptest.ResponseRecorder {
-	return request(handler, http.MethodPost, "/bookings", contentType, body,
+	return request(handler, http.MethodPost, "/v1/bookings", contentType, body,
 		http.Header{"Idempotency-Key": {"http-request"}})
+}
+
+func testHandler(service *booking.Service) http.Handler {
+	return httpapi.NewHandler(service, map[string]string{"tim-token": "tim", "helen-token": "helen"}, nil)
 }

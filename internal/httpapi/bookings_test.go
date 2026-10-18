@@ -2,327 +2,174 @@ package httpapi_test
 
 import (
 	"book-a-nook/internal/booking"
-	"book-a-nook/internal/httpapi"
 	"book-a-nook/internal/memory"
 	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 	"testing"
 	"time"
 )
 
-func TestCreateBookingValidRequest(t *testing.T) {
+func seedAPI(t *testing.T) (http.Handler, []booking.Slot) {
+	t.Helper()
 	ctx := context.Background()
 	service := booking.NewService(memory.NewStore())
-	handler := httpapi.NewHandler(service)
+	if _, err := service.CreateResource(ctx, booking.CreateResourceInput{ID: "nook-1"}); err != nil {
+		t.Fatal(err)
+	}
+	for _, id := range []string{"tim", "helen"} {
+		if _, err := service.CreateUser(ctx, booking.CreateUserInput{ID: id}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	start := time.Date(2026, 11, 7, 12, 0, 0, 0, time.UTC)
+	var slots []booking.Slot
+	for i := range 3 {
+		slot, err := service.CreateSlot(ctx, booking.CreateSlotInput{ResourceID: "nook-1", StartsAt: start.Add(time.Duration(i) * time.Hour), EndsAt: start.Add(time.Duration(i+1) * time.Hour)})
+		if err != nil {
+			t.Fatal(err)
+		}
+		slots = append(slots, slot)
+	}
+	return testHandler(service), slots
+}
 
-	resource, err := service.CreateResource(ctx, booking.CreateResourceInput{ID: "nook-1"})
-	if err != nil {
-		t.Fatalf("setup: CreateResource() error: %v", err)
+func TestBookingLifecycle(t *testing.T) {
+	handler, slots := seedAPI(t)
+	payload := fmt.Sprintf(`{"slot_id":%d}`, slots[0].ID)
+	created := requestBooking(handler, "application/json", payload)
+	if created.Code != http.StatusCreated {
+		t.Fatalf("create: %d %s", created.Code, created.Body)
 	}
-	user, err := service.CreateUser(ctx, booking.CreateUserInput{ID: "tim"})
-	if err != nil {
-		t.Fatalf("setup: CreateUser() error: %v", err)
+	var b booking.Booking
+	if err := json.Unmarshal(created.Body.Bytes(), &b); err != nil {
+		t.Fatal(err)
 	}
-	startsAt := time.Date(2026, time.November, 7, 12, 0, 0, 0, time.UTC)
-	slot, err := service.CreateSlot(ctx, booking.CreateSlotInput{
-		ResourceID: resource.ID,
-		StartsAt:   startsAt,
-		EndsAt:     startsAt.Add(time.Hour),
-	})
-	if err != nil {
-		t.Fatalf("setup: CreateSlot() error: %v", err)
+	if b.UserID != "tim" || b.SlotID != slots[0].ID || b.Status != booking.StatusActive {
+		t.Fatalf("booking = %+v", b)
 	}
-
-	response := requestBooking(handler, "application/json",
-		fmt.Sprintf(`{"slot_id":%d,"user_id":" tim "}`, slot.ID))
-	if response.Code != http.StatusCreated {
-		t.Fatalf("status = %d, want %d", response.Code, http.StatusCreated)
+	location := fmt.Sprintf("/v1/bookings/%d", b.ID)
+	if created.Header().Get("Location") != location {
+		t.Fatal("missing booking location")
 	}
-	if got := response.Header().Get("Content-Type"); got != "application/json" {
-		t.Errorf("Content-Type = %q, want application/json", got)
+	retry := requestBooking(handler, "application/json", payload)
+	if retry.Code != http.StatusCreated || retry.Body.String() != created.Body.String() {
+		t.Fatalf("replay: %d %s", retry.Code, retry.Body)
 	}
-	var got booking.Booking
-	if err := json.Unmarshal(response.Body.Bytes(), &got); err != nil {
-		t.Fatalf("Unmarshal() error: %v", err)
+	changed := requestBooking(handler, "application/json", fmt.Sprintf(`{"slot_id":%d}`, slots[1].ID))
+	if changed.Code != http.StatusConflict {
+		t.Fatalf("changed payload: %d %s", changed.Code, changed.Body)
 	}
-	if got.ID <= 0 {
-		t.Errorf("ID = %d, want a positive ID", got.ID)
+	for _, method := range []string{http.MethodGet, http.MethodDelete} {
+		wrongOwner := request(handler, method, location+"?user_id=tim", "", "", http.Header{"Authorization": {"Bearer helen-token"}})
+		if wrongOwner.Code != http.StatusNotFound {
+			t.Fatalf("wrong owner %s: %d", method, wrongOwner.Code)
+		}
 	}
-	if got.SlotID != slot.ID {
-		t.Errorf("SlotID = %d, want %d", got.SlotID, slot.ID)
+	got := request(handler, http.MethodGet, location, "", "")
+	if got.Code != http.StatusOK || got.Body.String() != created.Body.String() {
+		t.Fatalf("get: %d %s", got.Code, got.Body)
 	}
-	if got.UserID != user.ID {
-		t.Errorf("UserID = %q, want %q", got.UserID, user.ID)
+	for range 2 {
+		cancelled := request(handler, http.MethodDelete, location, "", "")
+		if cancelled.Code != http.StatusNoContent || cancelled.Body.Len() != 0 {
+			t.Fatalf("cancel: %d %s", cancelled.Code, cancelled.Body)
+		}
 	}
-	if got.Status != booking.StatusActive {
-		t.Errorf("Status = %q, want %q", got.Status, booking.StatusActive)
+	replacement := request(handler, http.MethodPost, "/v1/bookings", "application/json", payload, http.Header{"Idempotency-Key": {"new-key"}, "Authorization": {"Bearer helen-token"}})
+	if replacement.Code != http.StatusCreated {
+		t.Fatalf("rebook: %d %s", replacement.Code, replacement.Body)
 	}
-	if got.CreatedAt.IsZero() {
-		t.Error("CreatedAt is zero")
+	replay := requestBooking(handler, "application/json", payload)
+	var cancelled booking.Booking
+	if err := json.Unmarshal(replay.Body.Bytes(), &cancelled); err != nil {
+		t.Fatal(err)
+	}
+	if replay.Code != http.StatusCreated || cancelled.ID != b.ID || cancelled.Status != booking.StatusCancelled {
+		t.Fatalf("cancelled replay: %d %s", replay.Code, replay.Body)
 	}
 }
 
-func TestCreateBookingInvalidRequest(t *testing.T) {
-	tests := []struct {
-		name        string
-		contentType string
-		body        string
-		wantStatus  int
-		wantError   error
+func TestBookingInvalidRequests(t *testing.T) {
+	for _, tc := range []struct {
+		name, contentType, body string
+		status                  int
 	}{
-		{
-			name:        "missing ContentType",
-			contentType: "",
-			body:        `{}`,
-			wantStatus:  httpapi.ErrInvalidContentType.Status(),
-			wantError:   httpapi.ErrInvalidContentType,
-		},
-		{
-			name:        "invalid ContentType",
-			contentType: "text/plain",
-			body:        `{}`,
-			wantStatus:  httpapi.ErrInvalidContentType.Status(),
-			wantError:   httpapi.ErrInvalidContentType,
-		},
-		{
-			name:        "empty body",
-			contentType: "application/json",
-			body:        "",
-			wantStatus:  httpapi.ErrInvalidBody.Status(),
-			wantError:   httpapi.ErrInvalidBody,
-		},
-		{
-			name:        "invalid body",
-			contentType: "application/json",
-			body:        `{"slot_id":`,
-			wantStatus:  httpapi.ErrInvalidBody.Status(),
-			wantError:   httpapi.ErrInvalidBody,
-		},
-		{
-			name:        "invalid SlotID type",
-			contentType: "application/json",
-			body:        `{"slot_id":"one","user_id":"tim"}`,
-			wantStatus:  httpapi.ErrInvalidBody.Status(),
-			wantError:   httpapi.ErrInvalidBody,
-		},
-		{
-			name:        "invalid UserID type",
-			contentType: "application/json",
-			body:        `{"slot_id":1,"user_id":123}`,
-			wantStatus:  httpapi.ErrInvalidBody.Status(),
-			wantError:   httpapi.ErrInvalidBody,
-		},
-		{
-			name:        "multiple JSON values",
-			contentType: "application/json",
-			body:        `{} {}`,
-			wantStatus:  httpapi.ErrMultipleJSONValues.Status(),
-			wantError:   httpapi.ErrMultipleJSONValues,
-		},
-		{
-			name:        "trailing garbage",
-			contentType: "application/json",
-			body:        `{} garbage`,
-			wantStatus:  httpapi.ErrInvalidBody.Status(),
-			wantError:   httpapi.ErrInvalidBody,
-		},
-		{
-			name:        "missing SlotID",
-			contentType: "application/json",
-			body:        `{"user_id":"tim"}`,
-			wantStatus:  http.StatusBadRequest,
-			wantError:   booking.ErrInvalidSlotID,
-		},
-		{
-			name:        "zero SlotID",
-			contentType: "application/json",
-			body:        `{"slot_id":0,"user_id":"tim"}`,
-			wantStatus:  http.StatusBadRequest,
-			wantError:   booking.ErrInvalidSlotID,
-		},
-		{
-			name:        "negative SlotID",
-			contentType: "application/json",
-			body:        `{"slot_id":-1,"user_id":"tim"}`,
-			wantStatus:  http.StatusBadRequest,
-			wantError:   booking.ErrInvalidSlotID,
-		},
-		{
-			name:        "missing UserID",
-			contentType: "application/json",
-			body:        `{"slot_id":1}`,
-			wantStatus:  http.StatusBadRequest,
-			wantError:   booking.ErrInvalidUserID,
-		},
-		{
-			name:        "empty UserID",
-			contentType: "application/json",
-			body:        `{"slot_id":1,"user_id":""}`,
-			wantStatus:  http.StatusBadRequest,
-			wantError:   booking.ErrInvalidUserID,
-		},
-		{
-			name:        "whitespace UserID",
-			contentType: "application/json",
-			body:        `{"slot_id":1,"user_id":" "}`,
-			wantStatus:  http.StatusBadRequest,
-			wantError:   booking.ErrInvalidUserID,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			service := booking.NewService(memory.NewStore())
-			handler := httpapi.NewHandler(service)
-
-			response := requestBooking(handler, tt.contentType, tt.body)
-			if response.Code != tt.wantStatus {
-				t.Fatalf("status = %d, want %d", response.Code, tt.wantStatus)
+		{"missing content type", "", `{}`, 415},
+		{"wrong content type", "text/plain", `{}`, 415},
+		{"empty", "application/json", "", 400},
+		{"malformed", "application/json", `{"slot_id":`, 400},
+		{"wrong type", "application/json", `{"slot_id":"one"}`, 400},
+		{"multiple values", "application/json", `{} {}`, 400},
+		{"trailing garbage", "application/json", `{} garbage`, 400},
+		{"missing slot", "application/json", `{}`, 400},
+		{"null", "application/json", `null`, 400},
+		{"zero slot", "application/json", `{"slot_id":0}`, 400},
+		{"negative slot", "application/json", `{"slot_id":-1}`, 400},
+		{"slot outside database range", "application/json", `{"slot_id":2147483648}`, 400},
+		{"forged owner", "application/json", `{"slot_id":1,"user_id":"helen"}`, 400},
+		{"forged key", "application/json", `{"slot_id":1,"request_key":"forged"}`, 400},
+		{"unknown field", "application/json", `{"slot_id":1,"other":true}`, 400},
+		{"oversized value", "application/json", `{"slot_id":"` + strings.Repeat("1", 16384) + `"}`, 413},
+		{"oversized trailing whitespace", "application/json", `{"slot_id":1}` + strings.Repeat(" ", 16384), 413},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			rec := requestBooking(newTestHandler(), tc.contentType, tc.body)
+			if rec.Code != tc.status {
+				t.Fatalf("status = %d, want %d: %s", rec.Code, tc.status, rec.Body)
 			}
-			if got := response.Header().Get("Content-Type"); got != "application/json" {
-				t.Errorf("Content-Type = %q, want application/json", got)
-			}
-			var body struct {
-				Error string `json:"error"`
-			}
-			if err := json.Unmarshal(response.Body.Bytes(), &body); err != nil {
-				t.Fatalf("Unmarshal() error: %v", err)
-			}
-			if body.Error != tt.wantError.Error() {
-				t.Errorf("error = %q, want %q", body.Error, tt.wantError.Error())
+			if rec.Header().Get("Content-Type") != "application/json" {
+				t.Fatal("missing JSON content type")
 			}
 		})
 	}
 }
 
-func TestCreateBookingNonExistentUser(t *testing.T) {
-	ctx := context.Background()
-	service := booking.NewService(memory.NewStore())
-	handler := httpapi.NewHandler(service)
-
-	resource, err := service.CreateResource(ctx, booking.CreateResourceInput{ID: "nook-1"})
-	if err != nil {
-		t.Fatalf("setup: CreateResource() error: %v", err)
+func TestBookingMissingAndConflicting(t *testing.T) {
+	handler, slots := seedAPI(t)
+	missing := requestBooking(handler, "application/json", `{"slot_id":999}`)
+	if missing.Code != http.StatusNotFound {
+		t.Fatalf("missing slot: %d", missing.Code)
 	}
-	_, err = service.CreateUser(ctx, booking.CreateUserInput{ID: "tim"})
-	if err != nil {
-		t.Fatalf("setup: CreateUser() error: %v", err)
+	payload := fmt.Sprintf(`{"slot_id":%d}`, slots[0].ID)
+	if rec := requestBooking(handler, "application/json", payload); rec.Code != http.StatusCreated {
+		t.Fatal(rec.Body)
 	}
-	startsAt := time.Date(2026, time.November, 7, 12, 0, 0, 0, time.UTC)
-	slot, err := service.CreateSlot(ctx, booking.CreateSlotInput{
-		ResourceID: resource.ID,
-		StartsAt:   startsAt,
-		EndsAt:     startsAt.Add(time.Hour),
-	})
-	if err != nil {
-		t.Fatalf("setup: CreateSlot() error: %v", err)
+	rec := request(handler, http.MethodPost, "/v1/bookings", "application/json", payload, http.Header{"Idempotency-Key": {"another-key"}})
+	if rec.Code != http.StatusConflict || !strings.Contains(rec.Body.String(), booking.ErrSlotAlreadyBooked.Error()) {
+		t.Fatalf("occupied slot: %d %s", rec.Code, rec.Body)
 	}
-
-	response := requestBooking(handler, "application/json",
-		fmt.Sprintf(`{"slot_id":%d,"user_id":%q}`, slot.ID, "missing"))
-	if response.Code != http.StatusNotFound {
-		t.Fatalf("status = %d, want %d", response.Code, http.StatusNotFound)
-	}
-	if got := response.Header().Get("Content-Type"); got != "application/json" {
-		t.Errorf("Content-Type = %q, want application/json", got)
-	}
-	var body struct {
-		Error string `json:"error"`
-	}
-	if err := json.Unmarshal(response.Body.Bytes(), &body); err != nil {
-		t.Fatalf("Unmarshal() error: %v", err)
-	}
-	if body.Error != booking.ErrUserNotFound.Error() {
-		t.Errorf("error = %q, want %q", body.Error, booking.ErrUserNotFound.Error())
+	for _, method := range []string{http.MethodGet, http.MethodDelete} {
+		for _, tc := range []struct {
+			id     string
+			status int
+		}{{"999", 404}, {"abc", 400}, {"0", 400}, {"-1", 400}, {"2147483648", 400}} {
+			rec := request(handler, method, "/v1/bookings/"+tc.id, "", "")
+			if rec.Code != tc.status {
+				t.Fatalf("%s %s: %d %s", method, tc.id, rec.Code, rec.Body)
+			}
+		}
 	}
 }
 
-func TestCreateBookingNonExistentSlot(t *testing.T) {
-	ctx := context.Background()
-	service := booking.NewService(memory.NewStore())
-	handler := httpapi.NewHandler(service)
-
-	resource, err := service.CreateResource(ctx, booking.CreateResourceInput{ID: "nook-1"})
-	if err != nil {
-		t.Fatalf("setup: CreateResource() error: %v", err)
+func TestAuthentication(t *testing.T) {
+	handler, _ := seedAPI(t)
+	for _, methodPath := range []struct{ method, path string }{
+		{"GET", "/v1/slots?resource_id=nook-1"}, {"POST", "/v1/bookings"}, {"GET", "/v1/bookings/1"}, {"DELETE", "/v1/bookings/1"},
+	} {
+		for _, authorization := range []string{"", "Bearer", "Bearer unknown", "Basic tim-token", "Bearer tim-token extra"} {
+			rec := request(handler, methodPath.method, methodPath.path, "application/json", `{}`, http.Header{"Authorization": {authorization}})
+			if rec.Code != http.StatusUnauthorized || rec.Header().Get("WWW-Authenticate") != "Bearer" {
+				t.Fatalf("%s %s auth %q: %d", methodPath.method, methodPath.path, authorization, rec.Code)
+			}
+		}
 	}
-	user, err := service.CreateUser(ctx, booking.CreateUserInput{ID: "tim"})
-	if err != nil {
-		t.Fatalf("setup: CreateUser() error: %v", err)
-	}
-	startsAt := time.Date(2026, time.November, 7, 12, 0, 0, 0, time.UTC)
-	slot, err := service.CreateSlot(ctx, booking.CreateSlotInput{
-		ResourceID: resource.ID,
-		StartsAt:   startsAt,
-		EndsAt:     startsAt.Add(time.Hour),
-	})
-	if err != nil {
-		t.Fatalf("setup: CreateSlot() error: %v", err)
-	}
-
-	response := requestBooking(handler, "application/json",
-		fmt.Sprintf(`{"slot_id":%d,"user_id":%q}`, slot.ID+1, user.ID))
-	if response.Code != http.StatusNotFound {
-		t.Fatalf("status = %d, want %d", response.Code, http.StatusNotFound)
-	}
-	if got := response.Header().Get("Content-Type"); got != "application/json" {
-		t.Errorf("Content-Type = %q, want application/json", got)
-	}
-	var body struct {
-		Error string `json:"error"`
-	}
-	if err := json.Unmarshal(response.Body.Bytes(), &body); err != nil {
-		t.Fatalf("Unmarshal() error: %v", err)
-	}
-	if body.Error != booking.ErrSlotNotFound.Error() {
-		t.Errorf("error = %q, want %q", body.Error, booking.ErrSlotNotFound.Error())
-	}
-}
-
-func TestCreateBookingAlreadyBookedSlot(t *testing.T) {
-	ctx := context.Background()
-	service := booking.NewService(memory.NewStore())
-	handler := httpapi.NewHandler(service)
-
-	resource, err := service.CreateResource(ctx, booking.CreateResourceInput{ID: "nook-1"})
-	if err != nil {
-		t.Fatalf("setup: CreateResource() error: %v", err)
-	}
-	user, err := service.CreateUser(ctx, booking.CreateUserInput{ID: "tim"})
-	if err != nil {
-		t.Fatalf("setup: CreateUser() error: %v", err)
-	}
-	startsAt := time.Date(2026, time.November, 7, 12, 0, 0, 0, time.UTC)
-	slot, err := service.CreateSlot(ctx, booking.CreateSlotInput{
-		ResourceID: resource.ID,
-		StartsAt:   startsAt,
-		EndsAt:     startsAt.Add(time.Hour),
-	})
-	if err != nil {
-		t.Fatalf("setup: CreateSlot() error: %v", err)
-	}
-
-	if _, err := service.CreateBooking(ctx, booking.CreateBookingInput{RequestKey: "request-1", SlotID: slot.ID, UserID: user.ID}); err != nil {
-		t.Fatalf("setup: CreateBooking() error: %v", err)
-	}
-
-	response := requestBooking(handler, "application/json",
-		fmt.Sprintf(`{"slot_id":%d,"user_id":%q}`, slot.ID, user.ID))
-	if response.Code != http.StatusConflict {
-		t.Fatalf("status = %d, want %d", response.Code, http.StatusConflict)
-	}
-	if got := response.Header().Get("Content-Type"); got != "application/json" {
-		t.Errorf("Content-Type = %q, want application/json", got)
-	}
-	var body struct {
-		Error string `json:"error"`
-	}
-	if err := json.Unmarshal(response.Body.Bytes(), &body); err != nil {
-		t.Fatalf("Unmarshal() error: %v", err)
-	}
-	if body.Error != booking.ErrSlotAlreadyBooked.Error() {
-		t.Errorf("error = %q, want %q", body.Error, booking.ErrSlotAlreadyBooked.Error())
+	for _, path := range []string{"/users", "/resources", "/slots", "/bookings", "/v1/users", "/v1/resources"} {
+		rec := request(handler, http.MethodPost, path, "application/json", `{}`)
+		if rec.Code != http.StatusNotFound {
+			t.Fatalf("setup route %s remains public: %d", path, rec.Code)
+		}
 	}
 }
