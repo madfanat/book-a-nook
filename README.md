@@ -72,18 +72,10 @@ SQL
 
 ### Specifications
 
-- Slots are listed as a JSON array ordered by ID, including booked slots. `after` is an exclusive slot ID cursor; use the last returned ID for the next page. The default limit is 20 (also used for `limit=0`); the maximum is 100.
-- Slot end must exceed start. Slots for the same resource cannot overlap; adjacent slots are allowed. Times are stored as PostgreSQL `timestamptz`.
-- A partial unique index allows only one active booking per slot, including concurrent requests.
-- Booking status is `active` or `cancelled`. Cancellation frees the slot and preserves the booking record.
-- `Idempotency-Key` is scoped to a user, must contain non-whitespace characters, and may contain at most 128 bytes. The prefix `__legacy_booking__:` is reserved.
-- Reusing a key with the same slot returns the existing booking's current state. Reusing it with another slot returns `409`. Replaying a cancelled booking returns that cancelled booking; booking the slot again requires a new key.
-- Another user's booking returns `404` for both retrieval and cancellation. Missing or invalid authentication returns `401`.
-- Creation requires `Content-Type: application/json`. Unknown fields, malformed JSON, and multiple JSON values return `400`; bodies exceeding 16 KiB return `413`; unsupported content types return `415`.
-- API validation errors return `400`, missing records return `404`, and booking conflicts return `409`. API errors use the form `{"error":"message"}`.
-- The server writes structured JSON logs and allows up to five seconds for graceful shutdown.
-
-Development tokens and the supplied database credentials are intended for local use. Public deployment requires production authentication, TLS, and credential rotation.
+- Slot must end strictly after start. Slots for the same resource cannot overlap; adjacent slots are allowed.
+- Only one active booking per slot, including concurrent requests.
+- Booking status is `active` or `cancelled`.
+- `Idempotency-Key` is scoped to a user.
 
 ## Building and testing
 
